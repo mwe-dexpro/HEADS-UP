@@ -1,0 +1,32 @@
+{
+  "id": "./",
+  "name": "Heads Up",
+  "short_name": "Heads Up",
+  "description": "Lead-time reminders for calendar events. One event produces a ladder of nudges, so a birthday next week tells you to buy a present ten days out and write the card the night before.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#e8e4de",
+  "theme_color": "#e8e4de",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    { "src": "./icons/icon.svg", "type": "image/svg+xml", "sizes": "any" },
+    { "src": "./icons/icon-192.png", "type": "image/png", "sizes": "192x192" },
+    { "src": "./icons/icon-512.png", "type": "image/png", "sizes": "512x512" },
+    {
+      "src": "./icons/icon-maskable-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icons/icon-maskable-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ]
+}

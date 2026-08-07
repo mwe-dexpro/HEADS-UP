@@ -4,7 +4,8 @@ Each item rates **value** and **risk to v1.0**. Risk means "how much working
 behaviour this could break", not difficulty.
 
 **Shipped since:** rule test box (1.1.0); the Ladder surface, five calendar
-views, event editing, swipe and bulk actions, quiet hours (1.2.0).
+views, event editing, swipe and bulk actions, quiet hours, the PWA shell and
+static-host deploy (1.2.0).
 
 ## Suggested order
 
@@ -13,7 +14,9 @@ redirect twice, and touching the nudge engine before there are tests means
 finding out by hand.
 
 1. Tests on the pure functions — value 7, risk 1
-2. PWA shell: manifest, service worker, real notifications — value 10, risk 3
+2. ~~PWA shell: manifest, service worker~~ — **done in 1.2.0.** What remains of
+   this item is *scheduled* notifications, which is not a shell problem: it needs
+   Web Push and a server to push from — value 10, risk 3
 3. Microsoft Graph sync — value 10, risk 6
 4. Timezone correctness — value 8, risk 5
 5. Recurrence completeness (`BYDAY` etc.) — value 6, risk 5
@@ -33,16 +36,31 @@ inheriting its parent's date.
 
 Do this first. Everything below edits code these tests would protect.
 
-## 2. PWA shell
-**Value 10 · Risk 3.** `manifest.webmanifest`, a service worker registered with a
-relative path, install-to-home-screen, and notification scheduling.
+## 2. PWA shell — shipped in 1.2.0, except the scheduling
+**Value 10 · Risk 3.** Done: `manifest.webmanifest`, maskable icons, a service
+worker registered with a relative path, precached shell, offline cold start,
+install to home screen, and notifications displayed via the worker. Deploy to
+GitHub Pages is a workflow.
 
-Notes:
-- SW scope is its own directory; on GitHub Pages that means `/repo/`
-- iOS only permits web push for home-screen-installed PWAs
-- there is no reliable background timer in a PWA; schedule on open and on
-  visibilitychange, and accept that a closed phone may deliver late
-- keep `state.notified` as the dedupe guard so a rescheduled SW doesn't re-fire
+The predictions in this section held up:
+- SW scope is its own directory; on GitHub Pages that means `/repo/` ✓
+- `state.notified` is still the dedupe guard, unchanged ✓
+
+**What is left is the hard half: firing on time when the app is closed.**
+
+- there is no reliable background timer in a PWA. Notification Triggers never
+  shipped; Periodic Background Sync is Chromium-only, needs an install and a
+  12-hour minimum interval, and is not a scheduler
+- so this needs Web Push: a VAPID key pair, a push subscription per device, and
+  a small always-on service holding the schedule and sending at the due minute
+- iOS only permits web push for home-screen-installed PWAs, and only since 16.4
+- **this is the item that ends "your data never leaves your browser."** The
+  server needs enough of the schedule to send the right words at the right
+  minute. Decide deliberately whether that is titles or opaque ids, and write it
+  down as an ADR before writing the endpoint
+- today the app notifies on open, deduped. That is honest and it is documented in
+  LIMITATIONS; do not paper over it with a `setTimeout` that only works while a
+  tab happens to be alive
 
 ## 3. Microsoft Graph sync
 **Value 10 · Risk 6.** Replaces manual import. Touches event identity, which is

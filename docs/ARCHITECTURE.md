@@ -146,13 +146,67 @@ Breaking any of these produces silent data loss, not an error.
     `null` on any event — every reader must cope, and the calendar assumes an hour
     when it is missing.
 
+## The host contract
+
+`src/HeadsUp.jsx` is deliberately portable. It assumes two things and nothing
+else:
+
+1. **React 18 with hooks**, imported as `react`.
+2. **`window.storage`** — an async key/value store:
+   `get(key) -> {value} | null`, `set(key, value)`, `delete(key)`, `list()`.
+
+Everything platform-specific lives outside the app file, in `web/`:
+
+```
+web/main.jsx      mounts the app, installs the storage shim
+web/storage.js    window.storage over IndexedDB, with an in-memory fallback
+web/sw.js         offline shell, notification display, notification clicks
+web/index.html    manifest, icons, theme colour, worker registration
+```
+
+Keep it that way. A path to an icon or a service-worker call inside
+`HeadsUp.jsx` is the beginning of the end of running it anywhere else — which is
+why the app posts a notification *request* to the worker rather than naming its
+own icon files.
+
 ## Storage
 
 Single key `headsup:v1`, whole state as one JSON blob, debounced 400 ms. One key
 rather than several because the storage API is rate limited and the state is
 always written together.
 
-Never use `localStorage` or `sessionStorage` — unavailable in the target runtime.
+Never use `localStorage` or `sessionStorage` — unavailable in the artifact
+runtime, and the blob outgrows its 5 MB quota once a real calendar is imported.
+The IndexedDB shim in `web/storage.js` falls back to memory where IndexedDB is
+blocked (Safari private browsing, some webviews) and says so in the console; the
+app's own "changes stay for this session only" warning covers the user-facing
+half.
+
+## Build and deploy
+
+`build.mjs` is esbuild and about ninety lines. It transforms JSX, bundles, copies
+the shell, and stamps `web/sw.js` with a hash of the bundle so each deploy gets
+its own cache name.
+
+**Every emitted path is relative.** That is the single constraint that lets the
+same `dist/` serve from a domain root and from `/HEADS-UP/` on GitHub Pages. An
+absolute `/main.js` anywhere — in the HTML, the manifest, or the worker's shell
+list — breaks the subpath deploy and nothing else, so it fails only in
+production. The worker's scope comes from its own relative registration path,
+which is what makes its caching subpath-correct for free.
+
+### The service worker's three jobs
+
+1. Precache the shell so the app opens with no network.
+2. Show notifications. `new Notification()` is not constructible on Android, so
+   the page posts `{type:"NOTIFY"}` to the worker and the worker calls
+   `showNotification` — and owns the icon paths, because they are its assets.
+3. Step aside for a new build: network-first for same-origin requests, so a
+   deploy is live on the next load; cache-first only for the webfonts.
+
+Network-first costs a round trip on a warm start. It buys never having to debug
+why a user is looking at last week's bundle, which is the better trade for an app
+with one developer.
 
 ### Migration seam
 

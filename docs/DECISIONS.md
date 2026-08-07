@@ -265,3 +265,78 @@ list of connected accounts. There is no audio in the runtime and no sync, so:
 it teaches the user that the settings screen lies. Either wire it, narrow it
 until it is true, or leave it out.
 
+---
+
+### 021 — esbuild, and the app file stays host-agnostic
+**Accepted.** The build is `build.mjs`: esbuild, about ninety lines, one
+dependency. No framework config, no plugin chain.
+
+`src/HeadsUp.jsx` still assumes only React 18 and an async `window.storage`.
+Everything platform-specific — IndexedDB, the service worker, the manifest, icon
+paths — lives in `web/`.
+
+*Why:* the file was written for the Claude artifact runtime and may go back
+there, or somewhere else. The moment it names an icon file or calls
+`navigator.serviceWorker`, that stops being true. It is also the reason the app
+posts a notification *request* to the worker instead of showing one itself.
+
+*Cost:* one indirection for notifications. Cheap.
+
+---
+
+### 022 — IndexedDB, not localStorage
+**Accepted.** The whole state is one JSON blob and the storage contract is
+already async, so IndexedDB fits it exactly. localStorage would fit too, until a
+real calendar import pushes the blob past 5 MB and every write starts throwing.
+
+Where IndexedDB is unavailable — Safari private browsing, some webviews — the
+shim degrades to a `Map` and logs it once. The app's own "changes stay for this
+session only" warning is the user-facing half.
+
+---
+
+### 023 — Relative paths everywhere, so the subpath deploy just works
+**Accepted.** GitHub Pages serves a project repo from `/<repo>/`. An absolute
+`/main.js` in the HTML, the manifest or the worker's precache list works
+perfectly on localhost and breaks only in production, which is the worst possible
+place to find out.
+
+So: every path the build emits is relative, and the service worker registers
+from `./sw.js` so its scope is inferred rather than declared. Verified by serving
+`dist/` under a `/HEADS-UP/` prefix and checking that the worker's cache keys
+carry the prefix.
+
+*Rule to keep:* if you add an asset, reference it relatively, and test it behind
+a path prefix — not just at a root.
+
+---
+
+### 024 — Network-first for our own files
+**Accepted.** The worker tries the network first for same-origin requests and
+falls back to the cache; only the webfonts are cache-first.
+
+*Why:* the classic PWA failure is a user staring at a build from last week with
+no way to force an update. Network-first costs one round trip on a warm start and
+removes that failure mode entirely. Every successful response updates the cache
+on its way past, so offline still works.
+
+*Rejected:* cache-first with an in-app "a new version is available, reload"
+prompt. It is faster and it is more machinery — a version channel, a banner, a
+state to test — for an app with one developer and no cold-start budget to defend.
+
+---
+
+### 025 — Scheduled notifications are not shipped, and are not faked
+**Accepted.** The worker displays notifications. It does not fire them at 08:00
+while the app is closed, because on a static host nothing can: Notification
+Triggers never shipped, and Web Push needs a server.
+
+What was rejected is the plausible-looking substitute — a `setTimeout` ladder in
+the page, or a Periodic Background Sync handler — either of which would fire
+sometimes, on some platforms, and teach the user that the app is unreliable
+rather than that this feature is absent.
+
+Instead: notify on open, deduped through `state.notified`, and say so in
+LIMITATIONS and in the README. An absent feature the user knows about costs less
+than a present one they cannot trust.
+

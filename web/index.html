@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Heads Up</title>
+    <meta
+      name="description"
+      content="Lead-time reminders for calendar events. One event produces a ladder of nudges."
+    />
+
+    <!-- Every path here is relative. That is what lets the same build run at the
+         root of a domain and under /HEADS-UP/ on GitHub Pages. -->
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="./icons/favicon-32.png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+
+    <!-- The paper ground, so the browser chrome and the safe-area insets match
+         the app instead of flashing white on load. -->
+    <meta name="theme-color" content="#e8e4de" />
+    <meta name="color-scheme" content="light" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Heads Up" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: #e8e4de;
+      }
+      #root {
+        min-height: 100vh;
+        min-height: 100dvh;
+      }
+      .boot {
+        margin: 0;
+        padding: 40px 24px;
+        font:
+          400 13px/1.6 system-ui,
+          sans-serif;
+        color: #6f6a5e;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <noscript class="boot">
+        Heads Up is a React app and needs JavaScript. Nothing is sent anywhere —
+        your calendar and lists stay in this browser.
+      </noscript>
+    </div>
+    <script src="./main.js"></script>
+    <script>
+      /* Registered from here rather than from the bundle so that a bundle that
+         fails to parse still leaves a working offline shell behind. The relative
+         path sets the scope to this directory, which is the whole app. */
+      if ("serviceWorker" in navigator) {
+        addEventListener("load", () => {
+          navigator.serviceWorker.register("./sw.js").catch((err) => {
+            /* Insecure origin, private mode, or a host that will not serve
+               sw.js — the app works, it just is not installable. */
+            console.info(
+              "[headsup] service worker not registered:",
+              err.message,
+            );
+          });
+        });
+      }
+    </script>
+  </body>
+</html>

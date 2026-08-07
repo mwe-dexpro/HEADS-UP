@@ -2,12 +2,13 @@
 
 ## 1.2.0 — 2026-08-07
 
-`src/HeadsUp.jsx`, 6084 lines, sha256 `4a599a145aab0761…`
+`src/HeadsUp.jsx`, 6109 lines, sha256 `fb2d93262e4987ea…`
 
 The "Ladder" visual direction, implemented for real. The nudge engine, the key
 schemes and the storage contract are unchanged; the presentation layer is new.
 
 ### Changed — the whole surface
+
 - **Clinical paper.** Warm off-white ground (`#f7f5f0`), ink type, Public Sans
   and IBM Plex Mono. The instrument-panel slate palette is gone.
 - **One amber, reserved.** `#e8813f` means live and nothing else. Origin moved
@@ -22,6 +23,7 @@ schemes and the storage contract are unchanged; the presentation layer is new.
 - Tab labels: Upcoming became **Home**. Still four destinations.
 
 ### Added
+
 - **Calendar with five views** — agenda, month, week, work week and three-day.
   The timed views are a 06:00–23:00 grid with lane packing for overlaps, an
   all-day row per column and a now-line. Month carries ISO week numbers and a
@@ -53,7 +55,37 @@ schemes and the storage contract are unchanged; the presentation layer is new.
   lead the rule already has.
 - Undo toast carries a mono meta line and a 9-second bar that runs down.
 
+### Added — it is a real web app now
+
+- **A build.** `build.mjs`, esbuild, one dependency: `npm run dev` for a watching
+  dev server on :8000, `npm run build` for `dist/`.
+- **A browser host.** `web/main.jsx` mounts the app and `web/storage.js` provides
+  `window.storage` over IndexedDB, with an in-memory fallback where IndexedDB is
+  blocked. `src/HeadsUp.jsx` is unchanged in what it assumes: React 18 and that
+  one storage API.
+- **A complete PWA.** Manifest, maskable icons, `apple-touch-icon`, theme colour,
+  and a service worker that precaches the shell. It cold-starts with no network
+  at all and makes zero requests doing it.
+- **Notifications through the service worker.** `new Notification()` is not
+  constructible on Android, which meant notifications silently never appeared
+  there. The page now hands the worker a title and body and the worker shows it;
+  the constructor stays as the fallback for hosts with no worker.
+- Notification taps focus an open window or open one.
+- **Deploy to GitHub Pages** on push to `main`, via
+  `.github/workflows/pages.yml`. Every emitted path is relative, so the same
+  `dist/` serves from a domain root or from `/HEADS-UP/` with no rebuild.
+- `tools/make-icons.mjs` re-rasterises the icons from SVG when the mark changes.
+  The PNGs are committed, so a normal build needs neither it nor Playwright.
+
+### Notes
+
+- The webfonts are cached on first online load and fall back to the system stack
+  before that.
+- Reminders still fire when you next open the app, not on a schedule. A static
+  host has no server to push from — see LIMITATIONS and ROADMAP 2.
+
 ### Fixed
+
 - A long press that ends on the row it selected no longer deselects it: the
   release was still reading as a tap. The same suppression now covers the
   checkbox circle, which sits inside the swipe target.
@@ -61,8 +93,11 @@ schemes and the storage contract are unchanged; the presentation layer is new.
   one thing to do — marking either clears both — so it shows the earliest.
 - The runway lists one row per task rather than one per rung, for the same
   reason.
+- Notifications appeared on desktop and silently never on Android, because the
+  page constructed them itself.
 
 ### Notes
+
 - Every added field (`end`, `cat`, `alerts`, and eleven settings) arrives through
   `loadData`'s merge over `defaultData()`. The storage key stays `headsup:v1` and
   there is no migration.
@@ -75,6 +110,7 @@ schemes and the storage contract are unchanged; the presentation layer is new.
 `src/HeadsUp.jsx`, 3186 lines, sha256 `02ba1dc5d3914e34…`
 
 ### Added
+
 - **To-do lists.** Named lists, to-dos with or without a date, steps with their
   own dates and reminders. Built as a second, independent nudge source
   (`buildTodoNudges`) merged with the event stream by `allNudges`; the event
@@ -93,6 +129,7 @@ schemes and the storage contract are unchanged; the presentation layer is new.
   rules and tasks that can never fire.
 
 ### Changed
+
 - Navigation cut from six tabs to four: Upcoming, Lists, Calendar, Rules. The
   New queue became a segment inside Calendar; settings moved behind a header
   control. The bar no longer changes shape when watching is toggled.
@@ -102,6 +139,7 @@ schemes and the storage contract are unchanged; the presentation layer is new.
 - The key column widened to 54px; "Added by" shortened to "By" so it fits.
 
 ### Notes
+
 - `lists` is an added field, so `loadData`'s merge over defaults handles it. No
   migration; the storage key stays `headsup:v1`.
 - Two new completion paths and three new invariants — see ARCHITECTURE 7-10.
@@ -111,6 +149,7 @@ schemes and the storage contract are unchanged; the presentation layer is new.
 Frozen baseline. `src/HeadsUp.jsx`, 1926 lines, sha256 `33244feba02635b8…`
 
 ### Added
+
 - Reminder ladders: one event produces nudges at several lead times, driven by
   keyword rules. Marking a task done clears all of its lead times at once.
 - Upcoming view sorted by reminder due time, bucketed into Due now / Today /
@@ -131,6 +170,7 @@ Frozen baseline. `src/HeadsUp.jsx`, 1926 lines, sha256 `33244feba02635b8…`
 - Persistence in a single `window.storage` key, debounced, with reset.
 
 ### Design
+
 - Every card body is the same key/value table: Event / When / Where.
 - Location always visible; the top-right badge cluster flags only what is
   hidden — recurrence and the presence of notes.
@@ -138,6 +178,7 @@ Frozen baseline. `src/HeadsUp.jsx`, 1926 lines, sha256 `33244feba02635b8…`
   and cleared. Barlow Condensed / IBM Plex Sans / IBM Plex Mono.
 
 ### Known limitations
+
 See `docs/LIMITATIONS.md`. Headlines: `TZID` times are read as local, there is no
 service worker so notifications only fire while open, and there is no live
 calendar sync.

@@ -10,9 +10,23 @@ another zone will be off by the offset, which shifts every reminder with it.
 `Z`-suffixed UTC times and date-only values are correct.
 *Fix:* parse `VTIMEZONE`, or depend on a tz library.
 
-**Notifications only fire while the app is open.** There is no service worker, so
-a reminder due at 08:00 is announced whenever you next open the app. The
-in-app "Due now" list is always correct; the push is not.
+**Notifications do not fire on a schedule.** There is a service worker now, and
+it displays notifications correctly — including on Android, where the page cannot.
+What it cannot do is wake up at 08:00 while the app is closed. That needs either
+the Notification Triggers API, which no browser ships, or Web Push with a server
+to push from, and the app is deployed to a static host with no server.
+
+So a reminder due at 08:00 is announced when you next open the app. The in-app
+"Due now" band is always correct; only the push is late.
+*Fix:* Web Push plus a small always-on service to hold the schedule. That is a
+backend, and it ends the "your data never leaves your browser" property — see
+ROADMAP.
+
+**Offline needs one online visit first for the webfonts.** The shell and your
+data are cached on first load, but Public Sans and IBM Plex Mono come from Google
+Fonts and are only cached once they have been fetched once. Before that, offline
+falls back to the system sans and mono. Layout does not shift; the type just
+looks ordinary. *Fix:* self-host two woff2 files.
 
 **No live calendar sync.** Manual `.ics` import only, so the New-events queue
 only updates when you import.
