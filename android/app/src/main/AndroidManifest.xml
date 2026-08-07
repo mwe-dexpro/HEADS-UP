@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"></meta-data>
+        </provider>
+    </application>
+
+    <!-- Permissions -->
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Reminders are set with AlarmManager. POST_NOTIFICATIONS, WAKE_LOCK and
+         RECEIVE_BOOT_COMPLETED come from the LocalNotifications plugin's own
+         manifest (the last of those is what restores alarms after a reboot).
+
+         SCHEDULE_EXACT_ALARM has to be declared here to be grantable at all: on
+         Android 12 and later, without it canScheduleExactAlarms() is false
+         forever and every reminder silently falls back to the inexact path,
+         which still wakes the device from Doze but can drift by minutes. The
+         user grants it under "Alarms & reminders" in app settings.
+
+         Deliberately not USE_EXACT_ALARM: it is auto-granted, but Play policy
+         restricts it to alarm-clock and calendar apps, and arguing the case is
+         not worth a listing review. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+</manifest>

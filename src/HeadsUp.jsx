@@ -20,7 +20,13 @@ import React, {
 
 const STORE_KEY = "headsup:v1";
 const HORIZON_DAYS = 400;
-const APP_VERSION = "1.2.0";
+const APP_VERSION = "1.3.0";
+/* How far ahead, and how many, the app hands to the host to schedule. Android's
+   alarm scheduler and iOS both get unhappy past a few dozen pending
+   notifications, and a reminder six weeks out will be republished long before
+   it matters. */
+const SCHEDULE_DAYS = 30;
+const SCHEDULE_MAX = 60;
 
 /* ---------- time helpers ---------- */
 const MS_DAY = 86400000;
@@ -1802,6 +1808,17 @@ async function notify(title, options) {
   } catch (e) {
     return false;
   }
+}
+
+/* The second line of a reminder, as the notification says it.
+   `at` is the moment the words will be read: for one firing now that is now,
+   but for a scheduled one it is its own due time, or a notification handed to
+   the OS today would still claim the flight is "in 2 days" when it fires
+   tomorrow. */
+function notifyBody(n, at) {
+  return n.kind === "todo"
+    ? `${n.listName}${n.anchor ? ` — needed ${fmtDate(n.anchor)}` : ""}`
+    : `${n.eventTitle} — ${relative(n.eventStart, at)}`;
 }
 
 /* One key/value line. Every card body is made of these, in the same order,
@@ -5210,7 +5227,12 @@ const TABS = [
   ["rules", "Rules", "rules"],
 ];
 
-export default function HeadsUp() {
+/* `onSchedule` is the seam between the app and whatever can wake a device.
+   It is optional: the artifact runtime passes nothing and the app behaves
+   exactly as before. In the browser the service worker consumes it; in the
+   Capacitor build the OS alarm scheduler does. Neither is named here — see
+   docs/ARCHITECTURE.md "The host contract". */
+export default function HeadsUp({ onSchedule }) {
   const [data, setData] = useState(null);
   const [tab, setTab] = useState("home");
   const [warn, setWarn] = useState("");
@@ -5352,10 +5374,7 @@ export default function HeadsUp() {
     if (!fresh.length) return;
     fresh.forEach((n) => {
       notify(n.label, {
-        body:
-          n.kind === "todo"
-            ? `${n.listName}${n.anchor ? ` — needed ${fmtDate(n.anchor)}` : ""}`
-            : `${n.eventTitle} — ${relative(n.eventStart, now)}`,
+        body: notifyBody(n, now),
         tag: n.id,
         silent: data.settings.sound === "none",
       });
@@ -5368,6 +5387,41 @@ export default function HeadsUp() {
       },
     });
   }, [live, notifyState, data, now, persist]);
+
+  /* Publish the upcoming queue for the host to schedule.
+
+     Deliberately not deduped by doneKey: every rung is its own notification,
+     because a ladder that only ever speaks once is not a ladder. The live band
+     collapses rungs for *display*; this is delivery.
+
+     Keyed on the nudge set rather than on `now`, so it republishes when the
+     data changes and not every thirty seconds. */
+  const scheduleKey = useMemo(
+    () =>
+      nudges
+        .filter((n) => !n.done)
+        .map((n) => `${n.id}@${n.dueAt}`)
+        .join("|"),
+    [nudges],
+  );
+  useEffect(() => {
+    if (!onSchedule || !data) return;
+    const from = new Date();
+    const horizon = addDays(from, SCHEDULE_DAYS).getTime();
+    const items = nudges
+      .filter((n) => !n.done)
+      .filter((n) => new Date(n.dueAt).getTime() <= horizon)
+      .sort((a, b) => new Date(a.dueAt) - new Date(b.dueAt))
+      .slice(0, SCHEDULE_MAX)
+      .map((n) => ({
+        id: n.id,
+        at: n.dueAt,
+        title: n.label,
+        body: notifyBody(n, new Date(n.dueAt)),
+        silent: data.settings.sound === "none",
+      }));
+    onSchedule(items);
+  }, [scheduleKey, onSchedule, data && data.settings.sound]);
 
   /* app-icon badge, where the platform has one */
   useEffect(() => {

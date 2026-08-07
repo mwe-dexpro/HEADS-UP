@@ -7,14 +7,16 @@
    2. Show notifications. On Android `new Notification()` is not
       constructible, so the page asks this worker to do it —
       see NOTIFY below.
-   3. Get out of the way when there is a new build.
+   3. Catch up on overdue reminders when the browser lets us run
+      in the background — see CATCH-UP.
+   4. Get out of the way when there is a new build.
 
-   What it does NOT do is fire a reminder while the app is
-   closed. That needs either the unshipped Notification Triggers
-   API or Web Push with a server to push from, and this app is
-   deployed to a static host with neither. See
-   docs/LIMITATIONS.md — the in-app queue is always right, the
-   push is only as timely as your next visit.
+   It still cannot fire a reminder *at* 08:00 while the app is
+   closed. Nothing on the web can: Notification Triggers never
+   shipped, and a worker is killed after ~30s idle so it cannot
+   hold a timer. Periodic Background Sync is a coarse catch-up,
+   not a scheduler. The Android build in android/ is the one that
+   arrives on time. See docs/LIMITATIONS.md.
 
    __BUILD__ is replaced at build time with a hash of the bundle,
    so a new deploy gets a new cache and the old one is deleted.
@@ -23,6 +25,15 @@
 const VERSION = "__BUILD__";
 const CACHE = `headsup-${VERSION}`;
 const FONT_CACHE = "headsup-fonts";
+/* Survives a new build on purpose: the queue and what we have already said are
+   the user's, not the deploy's. */
+const STATE_CACHE = "headsup-state";
+const SCHEDULE_URL = "./__schedule";
+const SHOWN_URL = "./__shown";
+/* How many overdue reminders get their own notification before the rest are
+   collapsed into one line. Nine separate buzzes is not a heads-up, it is a
+   telling-off. */
+const CATCHUP_SHOWN = 3;
 
 /* Relative to the worker's own scope, so this works unchanged whether the app
    is at the root of a domain or under /repo-name/ on GitHub Pages. */
@@ -60,7 +71,11 @@ self.addEventListener("activate", (e) => {
       await Promise.all(
         names
           .filter(
-            (n) => n.startsWith("headsup-") && n !== CACHE && n !== FONT_CACHE,
+            (n) =>
+              n.startsWith("headsup-") &&
+              n !== CACHE &&
+              n !== FONT_CACHE &&
+              n !== STATE_CACHE,
           )
           .map((n) => caches.delete(n)),
       );
@@ -118,21 +133,105 @@ self.addEventListener("fetch", (e) => {
   e.respondWith(networkFirst(request));
 });
 
-/* NOTIFY — the page hands a notification over rather than constructing one,
-   because ServiceWorkerRegistration.showNotification is the only path that
-   works on Android and it is the only path that survives the tab closing
-   mid-flight. `data.url` is where a tap should land. */
-self.addEventListener("message", (e) => {
-  const msg = e.data;
-  if (!msg || msg.type !== "NOTIFY") return;
-  const { title, options } = msg;
-  e.waitUntil(
-    self.registration.showNotification(title, {
-      badge: "./icons/icon-192.png",
-      icon: "./icons/icon-192.png",
-      ...options,
+function show(title, options) {
+  return self.registration.showNotification(title, {
+    badge: "./icons/icon-192.png",
+    icon: "./icons/icon-192.png",
+    data: { url: "./" },
+    ...options,
+  });
+}
+
+async function readState(url) {
+  try {
+    const cache = await caches.open(STATE_CACHE);
+    const hit = await cache.match(url);
+    return hit ? await hit.json() : null;
+  } catch (err) {
+    return null;
+  }
+}
+async function writeState(url, value) {
+  const cache = await caches.open(STATE_CACHE);
+  await cache.put(
+    url,
+    new Response(JSON.stringify(value), {
+      headers: { "content-type": "application/json" },
     }),
   );
+}
+
+/* NOTIFY / SCHEDULE — the page hands notifications and the upcoming queue over
+   rather than doing either itself. showNotification via the registration is the
+   only path that works on Android, and the queue has to live somewhere the
+   worker can read it when no page exists. */
+self.addEventListener("message", (e) => {
+  const msg = e.data;
+  if (!msg) return;
+  if (msg.type === "NOTIFY") {
+    e.waitUntil(show(msg.title, msg.options));
+    return;
+  }
+  if (msg.type === "SCHEDULE") {
+    e.waitUntil(writeState(SCHEDULE_URL, msg.items || []));
+    return;
+  }
+  /* Only used by the test harness and by a dev poking at it in the console;
+     the real trigger is the periodicsync event below. */
+  if (msg.type === "CATCHUP") {
+    e.waitUntil(
+      catchUp().then((n) => {
+        if (e.ports && e.ports[0]) e.ports[0].postMessage({ shown: n });
+      }),
+    );
+  }
+});
+
+/* CATCH-UP — show whatever fell due while nobody was looking.
+
+   `shown` is this worker's own record, not the app's `state.notified`: writing
+   into the app's blob from here would race its debounced save and could lose a
+   completion. The two can therefore both decide to announce the same reminder —
+   which is why every notification carries `tag: id`. Same tag replaces rather
+   than stacks, so the user sees one line either way. */
+async function catchUp() {
+  const now = Date.now();
+  const schedule = (await readState(SCHEDULE_URL)) || [];
+  const shown = new Set((await readState(SHOWN_URL)) || []);
+  const due = schedule.filter(
+    (i) => !shown.has(i.id) && new Date(i.at).getTime() <= now,
+  );
+  if (!due.length) return 0;
+
+  for (const item of due.slice(0, CATCHUP_SHOWN)) {
+    await show(item.title, {
+      body: item.body,
+      tag: item.id,
+      silent: !!item.silent,
+    });
+  }
+  const rest = due.length - CATCHUP_SHOWN;
+  if (rest > 0) {
+    await show(`${rest} more reminder${rest === 1 ? "" : "s"} due`, {
+      body: "Open Heads Up to see them.",
+      tag: "headsup-overflow",
+    });
+  }
+  await writeState(SHOWN_URL, [...shown, ...due.map((i) => i.id)].slice(-400));
+  try {
+    if (self.navigator.setAppBadge)
+      await self.navigator.setAppBadge(due.length);
+  } catch (err) {
+    /* no badge here */
+  }
+  return due.length;
+}
+
+/* Chromium only, needs the app installed, and Chrome picks the moment with a
+   twelve-hour floor. Late is the design; silent until Thursday is not. */
+self.addEventListener("periodicsync", (e) => {
+  if (e.tag !== "headsup-catchup") return;
+  e.waitUntil(catchUp());
 });
 
 self.addEventListener("notificationclick", (e) => {

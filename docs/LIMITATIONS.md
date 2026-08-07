@@ -1,4 +1,4 @@
-# Known limitations in v1.2.0
+# Known limitations in v1.3.0
 
 Ranked by how likely they are to bite. These are known-wrong, not undiscovered.
 
@@ -10,17 +10,38 @@ another zone will be off by the offset, which shifts every reminder with it.
 `Z`-suffixed UTC times and date-only values are correct.
 *Fix:* parse `VTIMEZONE`, or depend on a tz library.
 
-**Notifications do not fire on a schedule.** There is a service worker now, and
-it displays notifications correctly — including on Android, where the page cannot.
-What it cannot do is wake up at 08:00 while the app is closed. That needs either
-the Notification Triggers API, which no browser ships, or Web Push with a server
-to push from, and the app is deployed to a static host with no server.
+**In a browser, notifications are late — sometimes by half a day.** The Android
+build schedules real OS alarms and is exact. The web build cannot: Notification
+Triggers never shipped, and a service worker is killed after ~30 s idle, so
+Periodic Background Sync is all there is. It is Chromium-only, needs the app
+installed, and Chrome enforces a twelve-hour floor and picks the moment itself.
+On Safari and Firefox there is no catch-up at all — reminders wait for the next
+open.
 
-So a reminder due at 08:00 is announced when you next open the app. The in-app
-"Due now" band is always correct; only the push is late.
-*Fix:* Web Push plus a small always-on service to hold the schedule. That is a
-backend, and it ends the "your data never leaves your browser" property — see
-ROADMAP.
+The in-app "Due now" band is always correct. Only the announcement is late.
+*Fix, for the web specifically:* Web Push plus a small always-on service to hold
+the schedule. That is a backend, and it ends "your data never leaves your
+browser" — see ROADMAP 2.
+
+**On Android 12+, exact delivery needs a permission the user must find.**
+Without "Alarms & reminders" granted in app settings, `canScheduleExactAlarms()`
+is false and every reminder is set with `setAndAllowWhileIdle` instead: it still
+wakes the device from Doze, but Android may batch it with other work and it can
+drift by minutes. The app declares `SCHEDULE_EXACT_ALARM` so it *can* be granted,
+and deliberately does not claim `USE_EXACT_ALARM`, which is auto-granted but
+restricted by Play policy to alarm-clock and calendar apps.
+*Fix:* prompt for it in-app on first run — the plugin exposes the settings
+intent. Not wired up yet.
+
+**Aggressive battery managers can still defer an alarm.** Some vendor Androids
+(Xiaomi, Huawei, Samsung's stricter modes) freeze apps they consider idle
+regardless of `allowWhileIdle`. Setting the app to Unrestricted battery usage
+fixes it; nothing in the app can.
+
+**Only the next 30 days and 60 reminders are scheduled.** Beyond that the queue
+is republished long before it matters, so this is invisible in practice — unless
+you have more than sixty reminders inside a month, in which case the furthest
+ones are not armed until some nearer ones clear.
 
 **Offline needs one online visit first for the webfonts.** The shell and your
 data are cached on first load, but Public Sans and IBM Plex Mono come from Google

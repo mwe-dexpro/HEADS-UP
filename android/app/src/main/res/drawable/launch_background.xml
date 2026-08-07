@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A flat sheet of paper rather than a splash image: the app is a paper
+     surface, and one solid colour cannot be the wrong density or aspect. -->
+<color xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/launch_background" />

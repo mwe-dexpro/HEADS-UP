@@ -340,3 +340,77 @@ Instead: notify on open, deduped through `state.notified`, and say so in
 LIMITATIONS and in the README. An absent feature the user knows about costs less
 than a present one they cannot trust.
 
+---
+
+### 026 — The app publishes a schedule; it does not schedule
+**Accepted.** `HeadsUp` takes an optional `onSchedule` prop and hands out a flat
+list of `{id, at, title, body}`. It never touches a service worker, an alarm
+manager or a Capacitor plugin.
+
+*Why:* there are now three consumers of the same list — the service worker's
+catch-up, Android's `AlarmManager`, and eventually a Web Push wake-up — and each
+one is worse or better at delivery than the others. Putting any of them inside
+the app file would have made the file untestable in the artifact runtime and
+would have coupled it to a platform it may not be running on.
+
+*Consequence worth remembering:* the seam is the contract, so its two subtleties
+belong to the app, not the host — the list is not deduped by `doneKey`, and each
+`body` is rendered as of its own fire time. Get the second one wrong and every
+scheduled notification lies about how far away the event is.
+
+---
+
+### 027 — Capacitor for Android, rather than a TWA
+**Accepted.** `npm run android` builds a Capacitor app around the same `dist/`.
+
+*Why not a TWA* (Bubblewrap, PWABuilder): a TWA is the site in a shell. It
+inherits every web limitation, including the one being solved — there is still no
+way to schedule a notification. Capacitor is the same idea plus a bridge to
+native code, and `@capacitor/local-notifications` is a thin wrapper over
+`AlarmManager`, which is Android's own scheduler.
+
+*Why not React Native or a rewrite:* the app is 6,000 lines of working React and
+the design is the product. Rewriting the surface to gain a timer would be trading
+the thing that works for the thing that is missing.
+
+*Cost:* a Gradle project in the repo, a signing key to look after, and a second
+artefact to release. The `android/` directory is committed because it carries real
+edits — the manifest permission and the icon set — and because `cap add android`
+regenerating it would silently drop them.
+
+---
+
+### 028 — Rewrite the whole alarm set on every publish
+**Accepted.** `web/native.js` cancels every pending notification and re-lays the
+current queue, rather than diffing.
+
+*Why:* the queue is at most sixty entries, so the churn is free. A diff that is
+subtly wrong leaves an alarm armed for a reminder the user has already dealt
+with, and a reminder that goes off after you did the thing is worse than no
+reminder — it is the exact failure this app exists to avoid.
+
+Debounced 600 ms, because the app republishes on every keystroke in a bulk edit
+and alarms are OS-level bookkeeping.
+
+---
+
+### 029 — Periodic Background Sync, even though it is late
+**Accepted.** The service worker registers a twelve-hour `periodicsync` and shows
+overdue reminders when it runs.
+
+It is Chromium-only, needs an install, and Chrome decides the moment. A reminder
+due at 08:00 may be announced at 15:00.
+
+*Why ship something that late:* the alternative is not "on time", it is "when you
+next open the app", which can be days. Late is a worse promise than exact and a
+much better one than silence.
+
+*Why it is capped at three notifications plus a summary:* thirteen overdue
+reminders after a week away is thirteen buzzes, which is not a heads-up, it is a
+telling-off.
+
+*What was refused:* making the web path *look* exact with a `setTimeout` ladder
+in the page. It works only while a tab is alive — which is the case that already
+worked — and it teaches the user to trust something that will fail the first time
+it matters.
+

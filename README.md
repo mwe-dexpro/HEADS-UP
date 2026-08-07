@@ -1,4 +1,4 @@
-# Heads Up — v1.2.0
+# Heads Up — v1.3.0
 
 Lead-time reminders for calendar events. One event produces a _ladder_ of nudges
 at several lead times, so a birthday next week tells you to buy a present ten
@@ -14,7 +14,7 @@ mono small-caps in fixed positions; every card scans in the same order.
 
 **Tagged:** 2026-08-07 · `src/HeadsUp.jsx` · 6109 lines · sha256 `fb2d93262e4987ea…`
 
-v1.0.0 and v1.1.0 remain tagged and intact: `git checkout v1.1.0`.
+Earlier versions remain tagged and intact: `git checkout v1.2.0`.
 
 ## What works
 
@@ -113,13 +113,53 @@ precaches the shell.
 - **Notifications** fire through the service worker, which is the only path that
   works on Android.
 
-### The honest limit on notifications
+### Notifications in a browser
 
-A reminder due at 08:00 is announced **when you next open the app**, not at 08:00.
-Firing on a schedule while the app is closed needs either the Notification
-Triggers API, which no browser ships, or Web Push with a server to push from —
-and a static host has no server. The in-app queue is always correct; the push is
-only as timely as your next visit. See `docs/LIMITATIONS.md`.
+Three things happen, in decreasing order of timeliness:
+
+1. **App open:** reminders fire as they fall due. On a desktop PWA left open,
+   this is simply correct.
+2. **App installed, closed, Chromium:** a **Periodic Background Sync** catch-up
+   announces anything overdue. Chrome picks the moment and enforces a twelve-hour
+   floor, so it is late — but you hear about Tuesday's reminder on Tuesday rather
+   than on Thursday when you next look.
+3. **Everything else** (Safari, Firefox, uninstalled): on next open.
+
+There is no way to do better on the web. Notification Triggers — the one API
+designed for this — never shipped past an origin trial, and a service worker is
+killed after about thirty seconds idle, so it cannot hold a timer. Anything that
+claims otherwise on a static host is either Web Push with a server behind it, or
+a `setTimeout` that only works while a tab happens to be alive.
+
+## On Android
+
+For reminders that arrive **at the minute, with the app closed, with no network
+and no server**, build the Android app. It is the same web code in a Capacitor
+shell; the difference is that each reminder is handed to Android's own
+`AlarmManager` instead of hoping the browser wakes up.
+
+```sh
+npm run android          # build, sync, open in Android Studio
+npm run android:apk      # build, sync, ./gradlew assembleDebug
+```
+
+Needs Android Studio (or a JDK 21 and the Android SDK) — `android/` is a normal
+Gradle project, and the second command drops an APK in
+`android/app/build/outputs/apk/debug/`.
+
+Two permissions matter once it is installed:
+
+- **Notifications** — the app asks on first launch (Android 13+).
+- **Alarms & reminders** — Settings → Apps → Heads Up → Alarms & reminders. On
+  Android 12+, _without_ this Android downgrades every reminder to an inexact
+  alarm: it still wakes the device from Doze, but it can drift by minutes. With
+  it, delivery is exact.
+
+Alarms are re-registered after a reboot, and the queue is rewritten whenever
+anything changes — mark a reminder done and its alarm is cancelled with it.
+
+Nothing about this adds a backend. The schedule is computed on the device from
+data that never leaves it.
 
 ## Before you change anything
 
@@ -133,13 +173,17 @@ reminders came back," and it is not recoverable without a migration.
 ```
 src/HeadsUp.jsx              the whole app — engine and surface, one file
 web/index.html               the shell: manifest, icons, worker registration
-web/main.jsx                 browser entry point
+web/main.jsx                 browser entry point; picks the scheduler
 web/storage.js               window.storage over IndexedDB
-web/sw.js                    service worker: offline shell, notifications
+web/schedule.js              publishes the queue to the worker; periodic sync
+web/native.js                publishes the queue to Android's AlarmManager
+web/sw.js                    service worker: offline shell, notify, catch-up
 web/manifest.webmanifest     PWA manifest
-web/icons/                   the mark, as SVG and as rasterised PNGs
-build.mjs                    esbuild, ~90 lines, build and dev server
-tools/make-icons.mjs         re-rasterise the icons when the mark changes
+web/icons/                   the mark: three SVGs and their rasterisations
+android/                     Capacitor project — on-time local notifications
+capacitor.config.json        app id, name, and that the web root is dist/
+build.mjs                    esbuild, ~100 lines, build and dev server
+tools/make-icons.mjs         re-rasterise every icon when the mark changes
 .github/workflows/pages.yml  build and deploy to GitHub Pages
 docs/ARCHITECTURE.md         data model, nudge engine, invariants, host contract
 docs/DECISIONS.md            why things are the way they are (ADR log)

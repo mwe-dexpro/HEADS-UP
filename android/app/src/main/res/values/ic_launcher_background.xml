@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The ink ground of the Ladder mark. The adaptive icon's foreground layer
+         is drawn on top of this, so the launcher can mask it to any shape. -->
+    <color name="ic_launcher_background">#17160f</color>
+    <!-- The paper ground, shown while the web view boots. -->
+    <color name="launch_background">#e8e4de</color>
+</resources>

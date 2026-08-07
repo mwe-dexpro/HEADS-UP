@@ -154,13 +154,17 @@ else:
 1. **React 18 with hooks**, imported as `react`.
 2. **`window.storage`** — an async key/value store:
    `get(key) -> {value} | null`, `set(key, value)`, `delete(key)`, `list()`.
+3. **Optionally** an `onSchedule` prop. Everything else degrades to "notifies
+   while open" without it, which is exactly what the artifact runtime gets.
 
 Everything platform-specific lives outside the app file, in `web/`:
 
 ```
-web/main.jsx      mounts the app, installs the storage shim
+web/main.jsx      mounts the app, installs the shim, picks a scheduler
 web/storage.js    window.storage over IndexedDB, with an in-memory fallback
-web/sw.js         offline shell, notification display, notification clicks
+web/schedule.js   publishes the queue to the worker; registers periodic sync
+web/native.js     publishes the queue to Android's AlarmManager (Capacitor)
+web/sw.js         offline shell, notification display, background catch-up
 web/index.html    manifest, icons, theme colour, worker registration
 ```
 
@@ -168,6 +172,31 @@ Keep it that way. A path to an icon or a service-worker call inside
 `HeadsUp.jsx` is the beginning of the end of running it anywhere else — which is
 why the app posts a notification *request* to the worker rather than naming its
 own icon files.
+
+### The schedule seam
+
+```js
+onSchedule([{ id, at, title, body, silent }, …])
+```
+
+Called whenever the queue changes, with everything unfinished due in the next
+`SCHEDULE_DAYS` (30), capped at `SCHEDULE_MAX` (60) — Android's alarm scheduler
+and iOS both get unhappy past a few dozen pending notifications, and a reminder
+six weeks out will be republished many times before it matters.
+
+Three things about it are load-bearing:
+
+- **It is keyed on the nudge set, not on `now`.** Otherwise it republishes every
+  thirty seconds and, on Android, rewrites every alarm with it.
+- **It is not deduped by `doneKey`.** The live band collapses rungs of one ladder
+  for *display*; this is *delivery*, and a ladder that only speaks once is not a
+  ladder.
+- **`body` is rendered as of `at`, not as of now.** `notifyBody(n, new Date(n.dueAt))`
+  — hand Android a notification today that says "in 2 days" and it will still say
+  "in 2 days" when it fires next week.
+
+Consumers are free to be worse than the seam. The service worker can only show
+what fell due when the browser happens to run it; Capacitor gets it exact.
 
 ## Storage
 
@@ -195,18 +224,52 @@ list — breaks the subpath deploy and nothing else, so it fails only in
 production. The worker's scope comes from its own relative registration path,
 which is what makes its caching subpath-correct for free.
 
-### The service worker's three jobs
+### The service worker's four jobs
 
 1. Precache the shell so the app opens with no network.
 2. Show notifications. `new Notification()` is not constructible on Android, so
    the page posts `{type:"NOTIFY"}` to the worker and the worker calls
    `showNotification` — and owns the icon paths, because they are its assets.
-3. Step aside for a new build: network-first for same-origin requests, so a
+3. Store the published schedule (`{type:"SCHEDULE"}`) and, on `periodicsync`,
+   announce anything overdue.
+4. Step aside for a new build: network-first for same-origin requests, so a
    deploy is live on the next load; cache-first only for the webfonts.
 
 Network-first costs a round trip on a warm start. It buys never having to debug
 why a user is looking at last week's bundle, which is the better trade for an app
 with one developer.
+
+Three caches, and the difference matters: `headsup-<build>` is evicted on every
+deploy, `headsup-fonts` and `headsup-state` are not. The schedule and the record
+of what has already been announced belong to the user, not to the build.
+
+### Why the worker keeps its own `shown` set
+
+It does not write into `state.notified`. That blob is saved by the page on a
+400 ms debounce, and a worker writing the same key from outside that cycle can
+clobber a completion. So both sides keep their own record and both set
+`tag: nudgeId` on every notification — same tag replaces rather than stacks, so a
+reminder announced by the worker and then again by the page is one line on the
+lock screen, not two.
+
+### Scheduling, and its ceiling
+
+| Host | Timeliness |
+| --- | --- |
+| Page open | Correct, checked every 30 s |
+| Installed PWA, Chromium, closed | Periodic Background Sync: late, ~12 h floor, browser's choice of moment |
+| Safari, Firefox, uninstalled | On next open |
+| Capacitor / Android | Exact, via `AlarmManager`, app closed, no network, no server |
+
+The web cannot do better. Notification Triggers never shipped past an origin
+trial; a worker is killed after ~30 s idle so it cannot hold a timer. Do not add
+a `setTimeout` ladder in the page to paper over this — it only works while a tab
+is alive, which is the case that already works.
+
+`web/native.js` rewrites the whole alarm set on each publish rather than diffing
+it. Sixty entries is cheap, and a diff that is subtly wrong leaves a ghost alarm
+for a reminder the user already dealt with — which is worse than any amount of
+churn.
 
 ### Migration seam
 

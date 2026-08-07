@@ -1,5 +1,58 @@
 # Changelog
 
+## 1.3.0 — 2026-08-07
+
+`src/HeadsUp.jsx`, 6163 lines
+
+Reminders that actually arrive. The engine and the surface are unchanged; what is
+new is a way for the app to tell a host *when* to wake the device, and two hosts
+that can.
+
+### Added
+- **The schedule seam.** An optional `onSchedule` prop: the app publishes
+  `[{id, at, title, body, silent}]` for everything unfinished due in the next 30
+  days, capped at 60, whenever the queue changes. It names no platform. The
+  artifact runtime passes nothing and behaves exactly as before.
+  - Keyed on the nudge set rather than on the clock, so it does not republish
+    every thirty seconds.
+  - Not deduped by `doneKey`: the live band collapses rungs of one ladder for
+    display, but every rung is its own delivery.
+  - `body` is rendered as of the moment it will fire, so a notification handed to
+    the OS today does not still say "in 2 days" when it goes off next week.
+- **Android app, via Capacitor** — `android/`, `npm run android`. Each reminder
+  is handed to Android's `AlarmManager` with `allowWhileIdle`, so it fires at the
+  minute with the app closed, offline, and with no server anywhere. Alarms are
+  restored after a reboot and rewritten whenever anything changes; marking a
+  reminder done cancels its alarm.
+  - `SCHEDULE_EXACT_ALARM` is declared so exact delivery can be granted.
+    Deliberately not `USE_EXACT_ALARM` — auto-granted, but Play policy restricts
+    it to alarm-clock and calendar apps.
+  - The launcher icon is the Ladder mark: an adaptive icon on the ink ground,
+    plus legacy square and round. The Capacitor splash image is replaced by a
+    flat sheet of paper, which cannot be the wrong density.
+- **Background catch-up on the web.** The service worker stores the published
+  schedule and, on `periodicsync`, announces anything overdue — three
+  individually, the rest collapsed into one line. Chromium only, needs the app
+  installed, and Chrome enforces a twelve-hour floor, so it is late by design.
+  Better than waiting until Thursday.
+- `npm run icons` regenerates every icon, web and Android, from three SVGs.
+
+### Changed
+- Three service-worker caches instead of one. `headsup-state` holds the schedule
+  and the record of what has been announced, and survives a deploy — it belongs
+  to the user, not the build.
+- The worker keeps its own `shown` set rather than writing `state.notified`,
+  which the page saves on a debounce and which a worker write could clobber. Both
+  sides tag every notification with the nudge id, so the two can never stack.
+
+### Notes
+- Exact delivery on Android 12+ needs "Alarms & reminders" granted in app
+  settings; without it Android downgrades to an inexact alarm that still wakes
+  from Doze but can drift. See LIMITATIONS.
+- The web still cannot fire on time with the app closed, and no amount of service
+  worker will change that. ROADMAP 2 now scopes the only fix — Web Push with an
+  empty payload, so a server learns when to poke a device and never what to say.
+
 ## 1.2.0 — 2026-08-07
 
 `src/HeadsUp.jsx`, 6109 lines, sha256 `fb2d93262e4987ea…`

@@ -5,7 +5,8 @@ behaviour this could break", not difficulty.
 
 **Shipped since:** rule test box (1.1.0); the Ladder surface, five calendar
 views, event editing, swipe and bulk actions, quiet hours, the PWA shell and
-static-host deploy (1.2.0).
+static-host deploy (1.2.0); the schedule seam, background catch-up on the web,
+and an Android build with exact local notifications (1.3.0).
 
 ## Suggested order
 
@@ -36,7 +37,7 @@ inheriting its parent's date.
 
 Do this first. Everything below edits code these tests would protect.
 
-## 2. PWA shell — shipped in 1.2.0, except the scheduling
+## 2. Notifications — shipped for Android in 1.3.0; the web is the gap
 **Value 10 · Risk 3.** Done: `manifest.webmanifest`, maskable icons, a service
 worker registered with a relative path, precached shell, offline cold start,
 install to home screen, and notifications displayed via the worker. Deploy to
@@ -44,23 +45,30 @@ GitHub Pages is a workflow.
 
 The predictions in this section held up:
 - SW scope is its own directory; on GitHub Pages that means `/repo/` ✓
-- `state.notified` is still the dedupe guard, unchanged ✓
+- `state.notified` is still the dedupe guard for the page. The worker needed its
+  own, because it cannot safely write the app's blob — see ARCHITECTURE ✓
 
-**What is left is the hard half: firing on time when the app is closed.**
+**On-time delivery is solved, but only on Android** (1.3.0, via Capacitor and
+`AlarmManager`). The web still cannot do it, and that is now the only gap:
 
 - there is no reliable background timer in a PWA. Notification Triggers never
   shipped; Periodic Background Sync is Chromium-only, needs an install and a
-  12-hour minimum interval, and is not a scheduler
-- so this needs Web Push: a VAPID key pair, a push subscription per device, and
-  a small always-on service holding the schedule and sending at the due minute
+  12-hour minimum interval, and is a catch-up rather than a scheduler. Both are
+  implemented; neither is exact
+- closing the gap on the web needs Web Push: a VAPID key pair, a push
+  subscription per device, and a small always-on service holding the schedule and
+  sending at the due minute. A Cloudflare Worker with a cron trigger does it on a
+  free tier
+- **push the wake-up, not the words.** The worker already reads its own stored
+  schedule, so an empty push is enough to make it compose and show the right
+  notification locally. The server then learns *when* to poke a device and never
+  sees a reminder title. Note the cost: Chrome expects every push to show
+  something, so a blind cadence eventually earns a generic "site updated in the
+  background" notice — push near the actual due minute instead, and accept that
+  the timing leaks
 - iOS only permits web push for home-screen-installed PWAs, and only since 16.4
-- **this is the item that ends "your data never leaves your browser."** The
-  server needs enough of the schedule to send the right words at the right
-  minute. Decide deliberately whether that is titles or opaque ids, and write it
-  down as an ADR before writing the endpoint
-- today the app notifies on open, deduped. That is honest and it is documented in
-  LIMITATIONS; do not paper over it with a `setTimeout` that only works while a
-  tab happens to be alive
+- whatever the shape, it ends "your data never leaves your browser" for web
+  users. Write the ADR before the endpoint
 
 ## 3. Microsoft Graph sync
 **Value 10 · Risk 6.** Replaces manual import. Touches event identity, which is

@@ -1,0 +1,13 @@
+{
+  "appId": "de.dexpro.headsup",
+  "appName": "Heads Up",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#e8e4de"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "iconColor": "#e8813f"
+    }
+  }
+}
