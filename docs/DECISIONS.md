@@ -168,3 +168,100 @@ depends on it.
 
 *Cost:* this is now a constraint on `buildNudges` — see ARCHITECTURE invariant
 10. It must stay callable with a hand-built dataset.
+
+---
+
+### 015 — Clinical paper, and exactly one accent
+**Accepted.** The instrument-panel palette (slate ground, amber, mint) is
+replaced by warm off-white paper, ink type, and a single amber reserved for
+live. Mint is gone; green survives only as the swipe-to-clear ground.
+
+*Why:* with three accents in play, "live" competed with "new" and "cleared" for
+the eye. One colour that only ever means one thing is legible across the room.
+
+*Rule to keep:* if something needs a second accent, take it from the muted inks
+(`--blue`, `--green`, a list's `accent`). Amber is spent.
+
+---
+
+### 016 — Live is a filled card; only one at a time is filled
+**Accepted.** The design gives live reminders a filled dark card, and the study
+in the handoff bundle argues it against two cheaper treatments: a rail (too
+close to "slightly different") and a full-bleed ledger row (loses the card
+boundary a thumb aims at).
+
+The prototype only ever showed one live card, because it was drawing a calm
+moment. Real data is not calm: a fresh import with two overdue to-dos and a
+handful of matched events puts nine reminders past due, and nine filled cards
+spend the difference the fill was bought with.
+
+So: the first live item gets the filled card. The rest appear immediately under
+it in an ALSO DUE NOW band, using the design's own treatment B — amber rail,
+DUE NOW in amber ink. Nothing is hidden and nothing is collapsed; the NOW
+counter states the true total either way.
+
+*Rejected:* capping the live band, or collapsing the remainder behind a "show
+more". Both hide work that is already late, which is the one thing this app
+exists not to do.
+
+---
+
+### 017 — Alerts are a third task source, not a second engine
+**Accepted.** The design's event sheet has an ALERTS row — at start, 15 min,
+1 h, 2 h, 1 day — which the ladder model cannot express, since a rung counts
+back in whole days and lands at an hour.
+
+Rather than bolt on a parallel reminder system, `alerts: [minutes]` became a
+third source inside `buildNudges`, using the existing key scheme with the
+literal ruleId `alert`.
+
+*Why there:* it inherits done-clears-the-whole-task, snooze, notification
+dedupe and the fallback rule for free. A second engine would have had to
+reimplement all four, and invariant 6 would have quietly stopped being true.
+
+*Cost:* two new invariants (12, 13) and one asymmetry — quiet hours move rungs
+but not alerts, because an alert shifted out of the small hours would fire after
+the event it is announcing.
+
+---
+
+### 018 — Quiet hours transform the time, never the key
+**Accepted.** `applyQuiet` is a pure function of a computed due time, called at
+the end of the due calculation.
+
+*Why not earlier:* the tempting version shifts the lead's hour before building
+the key. That works until the user edits their quiet window, at which point every
+snooze and every notified entry re-keys and completed reminders come back. This
+is invariant 11, and it is the same failure mode as invariant 1.
+
+---
+
+### 019 — Features the design does not cover keep working
+**Accepted.** The prototype has no place for `.ics` import, the shared-calendar
+review queue, notification permission, or the to-do day-of default. All four
+exist and are load-bearing.
+
+- Import, permission, watching and the to-do default moved into the Settings
+  sheet, in the design's own idiom.
+- The review queue became a sixth segment in Calendar, rendered **only** when
+  watching is on, so the default five-view bar is exactly as designed.
+
+*Rejected:* dropping them to match the prototype exactly. A handoff bundle is a
+picture of a surface, not a specification of scope.
+
+---
+
+### 020 — Controls that cannot bite say so
+**Accepted.** The design's settings include a notification sound picker and a
+list of connected accounts. There is no audio in the runtime and no sync, so:
+
+- The sound picker is kept and stored, and **Silent** genuinely sets
+  `silent: true` on the Notification. The row says the tone itself is the
+  platform's.
+- ACCOUNTS became CALENDAR SOURCES: real event counts by origin, plus the real
+  import control. No invented Google and iCloud rows.
+
+*Rule to keep:* a control that does nothing is worse than an absent one, because
+it teaches the user that the settings screen lies. Either wire it, narrow it
+until it is true, or leave it out.
+

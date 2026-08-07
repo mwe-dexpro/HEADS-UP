@@ -1,4 +1,4 @@
-# Known limitations in v1.1.0
+# Known limitations in v1.2.0
 
 Ranked by how likely they are to bite. These are known-wrong, not undiscovered.
 
@@ -16,6 +16,32 @@ in-app "Due now" list is always correct; the push is not.
 
 **No live calendar sync.** Manual `.ics` import only, so the New-events queue
 only updates when you import.
+
+### Medium — the new surface
+
+**Quiet hours do not move alerts.** A minute-based alert on an early flight fires
+inside the quiet window by design — shifting it would land it after the event.
+Deliberate, but it means the window is not an absolute guarantee of silence.
+*Fix:* none wanted. If it ever becomes one, it needs a per-alert opt-in.
+
+**Notification sound is a stored preference, not a tone.** Only **Silent** has an
+effect (`silent: true`); Chime, Ping and Marimba all get the platform's default.
+*Fix:* needs an audio asset and a service worker to play it when not focused.
+
+**The calendar grid runs 06:00–23:00.** An event at 04:00 exists, is reminded
+about, and appears in agenda and month views, but has no block in the timed
+views. *Fix:* make the window follow the day's earliest and latest events.
+
+**Overlap packing is greedy, left to right.** Three events that mutually overlap
+each get a third of the column; a chain that overlaps only pairwise still splits
+the whole column. Correct, never wrong, occasionally narrower than it needs to be.
+
+**`event.end` is only as good as the import.** An `.ics` without `DTEND` gives
+`null`, and the grid draws an hour. Recurring series carry the first
+occurrence's duration to every occurrence.
+
+**Ask-before-deleting confirms, then still offers undo.** Both, not either. With
+the setting off — the default — you get undo alone.
 
 ### Medium
 

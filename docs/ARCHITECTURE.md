@@ -22,10 +22,13 @@ Persisted shape, stored as JSON under a single key:
 {
   events: [{
     id, title, start,          // ISO string
+    end,                       // ISO | null — display only, never scheduling
     allDay, location, description,
+    cat,                       // "work"|"personal"|"family"|"trip" — colour only
     recurring, repeats,        // "yearly", "every 2 weeks", ""
     organizer: { name, email } | null,
     tasks: [{ id, label, leads: [{ days, hour }] }],   // ad-hoc, per event
+    alerts: [Number],          // minutes before start — plain calendar alerts
     source: "ics" | "manual" | "sample",
   }],
   rules: [{
@@ -52,8 +55,15 @@ Persisted shape, stored as JSON under a single key:
   }],
   settings: {
     fallback, fallbackHour,          // catch-all nudge for unmatched events
+    defaultLead,                     // the catch-all's lead time, in days
     watchNew, watchOnlyOthers, myEmail,
     todoAutoRemind, todoAutoHour,    // implicit day-of nudge for dated to-dos
+    quiet, quietFrom, quietTo,       // "HH:MM" — shifts day-based rungs only
+    defaultSnooze,                   // "15m" | "1h" | "3h"
+    calDefault, weekStart, weekNums, // calendar view, "mon"|"sun", ISO KW column
+    undatedAt,                       // "top" | "bottom" inside a list
+    confirmDelete,                   // off: undo is cheaper than a dialog
+    sound, badge, haptics,           // only Silent, setAppBadge and vibrate bite
   },
 }
 ```
@@ -64,6 +74,18 @@ Persisted shape, stored as JSON under a single key:
 functions. `allNudges` merges and sorts them by due time. They share the card
 layout and the snooze store but nothing else — in particular, a to-do's
 completion is **not** in `state.done`.
+
+Within `buildNudges` there are three task sources, collected in this order:
+matched rules, the event's own ad-hoc `tasks`, then its `alerts`. The catch-all
+is appended only if all three came back empty.
+
+### Two kinds of lead
+
+A **rung** counts back in whole days from the start of the event's day and lands
+at a chosen hour — this is the ladder, and it is what rules produce. An **alert**
+counts back in minutes from the event's exact start. Rungs are subject to quiet
+hours; alerts are not, because shifting one out of the small hours would land it
+after the event it is announcing.
 
 ## Key schemes
 
@@ -77,6 +99,9 @@ completion is **not** in `state.done`.
 | Fallback ruleId | the literal `fallback` | unmatched events |
 | To-do nudge id | `todo::${listId}::${itemId}::${subId\|-}::${index}` | one to-do reminder |
 | To-do doneKey | the same, without `::${index}` | unused; completion lives on the item |
+| Alert ruleId | the literal `alert` | plain calendar alerts |
+| Alert taskId | `alert-${minutes}` | one alert, all its firings |
+| Alert snooze key | `${doneKey}::m${minutes}` | one alert |
 
 ## Invariants
 
@@ -108,6 +133,18 @@ Breaking any of these produces silent data loss, not an error.
 10. **`buildNudges` must stay free of to-do logic.** The rule preview calls it
     with a hand-built single-event dataset. If it starts reading `lists` or other
     state, the preview stops telling the truth.
+11. **Quiet hours may only move a due time, never a key.** `applyQuiet` runs at
+    the very end of the due calculation; `doneKey` and the snooze key are built
+    from `(event, task)` and `(days, hour)` and never see the shifted value. Feed
+    the shifted time into a key and every completion orphans the first time the
+    user edits their quiet window.
+12. **Alerts count as a task source for the fallback check.** They are pushed
+    into `tasks` before the `!tasks.length` test, so an event carrying only alerts
+    does not also collect a catch-all. A fourth source must sit in the same place
+    for the same reason.
+13. **`event.end` is presentation only.** Nothing schedules from it. It may be
+    `null` on any event — every reader must cope, and the calendar assumes an hour
+    when it is missing.
 
 ## Storage
 
@@ -136,12 +173,24 @@ release.
 
 - Styling is a single CSS string in the `CSS` constant, injected via `<style>`.
   There is no Tailwind compiler in the target runtime, so arbitrary-value classes
-  silently do nothing. Custom colours live in CSS variables on `.hu`.
-- Every card body uses the same `.hu-kv` label/value grid. New card types should
+  silently do nothing. Custom colours live in CSS variables on `.lx`. An inline
+  style is for values computed at render time only — a track position, a category
+  colour, a swipe transform.
+- **One amber.** `--amber` (`#e8813f`) and `--amber-ink` (`#b4470f`) mean live and
+  nothing else. Anything that wants a second accent takes it from the muted inks:
+  `--blue`, `--green`, or a list's own `accent`.
+- **Live is filled, never tinted.** The one card in front of you is the dark card.
+  Other items already due keep the amber rail and say so in amber ink — treatment
+  B in the design's live-card study — so the fill stays worth something.
+- Every card body uses the same `.lx-kv` label/value grid. New card types should
   reuse `<Row k="…">` rather than inventing a layout.
-- The badge cluster in the top-right flags only information *not* visible on the
-  card: recurrence and the presence of notes. If you surface a field on the card,
-  remove its badge.
+- The mark cluster under a card body flags only information *not* visible on it:
+  recurrence, the presence of notes, an ad-hoc origin. If you surface a field on
+  the card, remove its mark.
+- Mono small-caps labels are instrument readings, so dates in them go through
+  `capDate` to drop the locale's comma. Prose keeps it.
+- Overlays (`.lx-sheet`, `.lx-bulk`, `.lx-undo`) are absolutely positioned
+  siblings of the tab bar inside `.lx-phone`, not children of the scroll area.
 
 ## Component map
 
@@ -149,27 +198,51 @@ Four destinations in the tab bar; settings sit behind the header control.
 
 ```
 HeadsUp                 state owner, storage, notification loop, routing, undo
-├─ Upcoming             due-now / today / tomorrow / this week / later + handled
-│  ├─ Nudge             dispatcher: picks the card by nudge kind
-│  │  ├─ NudgeCard      event reminder
-│  │  │  └─ EventDetail recurrence, provenance, full notes
-│  │  └─ TodoNudgeCard  to-do reminder; accent edge + List row
-│  └─ Approach          the lead-time track (signature element)
-├─ Lists                to-do lists
-│  └─ ItemEditor        due date, reminders, notes, steps
-│     └─ SubStep        one step, own date and reminders
-├─ CalendarTab          segmented shell
-│  ├─ NewInCalendar     opt-in review queue for events added by others
-│  │  └─ QuickReminder  presets + custom lead time, shared with Events
-│  ├─ Events            all events, ad-hoc reminders, mute, manual add
-│  └─ ImportTab         .ics import only
-├─ Rules                test box, collapsed summaries, editor
-│  ├─ RuleProbe         live preview; calls the real engine
-│  └─ RuleEditor        keywords, tasks, lead times
-└─ Settings             watching, notifications, to-do defaults, reset
+├─ Home                 counters · live · buckets · runway · handled
+│  ├─ LiveCard          the one filled dark card; done and snooze
+│  ├─ QueuedCard        everything else; `live` prop gives it the amber rail
+│  └─ Runway            one event's whole ladder on a track (signature element)
+├─ ListsOverview        eight lists, search across all of them
+├─ ListDetail           with-a-date / no-date, swipe, long press
+│  └─ TodoRow           one row; owns nothing, all state is lifted
+├─ CalendarTab          five views + the opt-in NEW segment
+├─ Rules                test box, warnings, collapsed summaries
+│  ├─ TestBox           live preview; calls the real engine
+│  ├─ RuleCard          ladder diagram, keywords, summary
+│  │  ├─ KeywordEditor
+│  │  └─ TaskEditor     one task's lead-time chip grid
+│  └─ (catch-all card)
+└─ overlays, siblings of the tab bar
+   ├─ TodoSheet         date, reminders, steps, notes, move
+   ├─ EventSheet        read-only until EDIT
+   ├─ BulkBar           done · date · move · delete
+   ├─ Settings          everything adjustable, plus ImportPanel
+   └─ undo / confirm
 ```
 
-Shared leaf components: `Badges`, `Row`, `QuickReminder`, `EventDetail`.
+Shared leaves and helpers: `Row`, `Toggle`, `Seg`, `SectionHead`, `Empty`,
+`TabIcon`, `StatusBar`, `useSwipe`, and the pure nudge-to-string mappings
+(`rungOf`, `dueLabelOf`, `rowsOf`, `marksOf`, `railOf`).
+
+### Where state lives
+
+`listId`, `openTodo`, `sel`, `bulkPanel`, `evOpen`, `evEdit` and `draft` are held
+by `HeadsUp`, not by the screens, because the sheets and the bulk bar render
+above the tab bar rather than inside the scroll area. Screens own only what
+nothing else can see: which card is expanded, a draft in a text field.
+
+### Gestures
+
+`useSwipe` is one hook for the whole app. It claims the pointer only after the
+movement is unambiguously horizontal (7px, and more horizontal than vertical), so
+vertical scrolling is never stolen, and it rubber-bands past 150px. Two things
+matter for correctness:
+
+- A gesture that has just ended must not also register as a tap — `tapBlocked()`
+  covers a 320 ms window after any release.
+- **Every clickable thing inside a swipe target must check `tapBlocked()` too.**
+  The checkbox circle sits inside the row, so without it a long press that lands
+  on the circle deselects the item it just selected.
 
 ## Undo
 
@@ -183,5 +256,7 @@ single-step and in memory only.
 
 `parseICS`, `expandRecurrence`, `recurrenceLabel`, `cleanDescription`,
 `matchRules`, `buildNudges`, `buildTodoNudges`, `resolveReminder`, `allNudges`,
-`unreviewedEvents`. All are side-effect free and
-take plain data. Any future test suite should start here.
+`unreviewedEvents`, `applyQuiet`, `bucketOf`, `buildRunway`, `ruleWarnings`. All
+are side-effect free and take plain data. Any future test suite should start
+here. `applyQuiet` deserves the first test: the midnight-wrapping window is the
+part that is easy to get subtly wrong.

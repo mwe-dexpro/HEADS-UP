@@ -1,5 +1,75 @@
 # Changelog
 
+## 1.2.0 — 2026-08-07
+
+`src/HeadsUp.jsx`, 6084 lines, sha256 `4a599a145aab0761…`
+
+The "Ladder" visual direction, implemented for real. The nudge engine, the key
+schemes and the storage contract are unchanged; the presentation layer is new.
+
+### Changed — the whole surface
+- **Clinical paper.** Warm off-white ground (`#f7f5f0`), ink type, Public Sans
+  and IBM Plex Mono. The instrument-panel slate palette is gone.
+- **One amber, reserved.** `#e8813f` means live and nothing else. Origin moved
+  onto the rail down a card's left edge: ink for a calendar event, the list's
+  accent for a to-do, amber when the thing is due now.
+- **Live is a filled dark card, not a tint** — categorically different at arm's
+  length rather than the same object in another shade.
+- Home opens on a three-cell counter strip (NOW / TODAY / WEEK), then the live
+  card, then the queue bucketed by distance, then the runway, then Handled.
+- Every card body is still one key/value grid, in one order, mono small-caps
+  labels in fixed positions.
+- Tab labels: Upcoming became **Home**. Still four destinations.
+
+### Added
+- **Calendar with five views** — agenda, month, week, work week and three-day.
+  The timed views are a 06:00–23:00 grid with lane packing for overlaps, an
+  all-day row per column and a now-line. Month carries ISO week numbers and a
+  selected-day list. Tapping an empty slot starts an event there.
+- **Event sheet**, read-only until you tap EDIT: title, date, all-day, start and
+  end, calendar, alerts, place, notes.
+- **Event end times.** `DTEND` is now parsed and carried through recurrence
+  expansion as a duration, so the calendar can draw a block of the right length.
+- **Plain calendar alerts** (`alerts: [minutes]`) — at start, 15 min, 1 h, 2 h,
+  1 day — as a third task source inside `buildNudges`, pushed before the fallback
+  check so an event with only alerts does not also collect a catch-all.
+- **Event categories** (`cat`) — work, personal, family, travel. Colour only;
+  they carry no scheduling meaning.
+- **Swipe and long press on to-dos.** Right clears, left deletes, a long press
+  starts a selection. The gesture claims the pointer only once it is
+  unambiguously horizontal, so vertical scrolling is never stolen.
+- **Bulk actions** on a selection: done, re-date, move between lists, delete.
+- **Quiet hours.** A pure transform of a computed due time, applied at the end of
+  the calculation, so it can never orphan a completion. Day-based rungs move;
+  minute alerts do not, because a shifted alert would land after its own event.
+- **Settings**, rebuilt as a full sheet: quiet hours, catch-all lead time,
+  default snooze, calendar defaults, week start, week numbers, undated position,
+  ask-before-deleting, notification permission, sound, app badge, haptics, the
+  new-events queue, calendar sources and `.ics` import.
+- App-icon badge via `setAppBadge`, and haptics via `vibrate`, where the platform
+  has them.
+- Rule editing gained a name field, keyword add and remove, task add and remove,
+  and a per-rule on switch. The lead-time chip grid shows the presets plus any
+  lead the rule already has.
+- Undo toast carries a mono meta line and a 9-second bar that runs down.
+
+### Fixed
+- A long press that ends on the row it selected no longer deselects it: the
+  release was still reading as a tap. The same suppression now covers the
+  checkbox circle, which sits inside the swipe target.
+- The live band deduplicates by `doneKey`. Two overdue rungs of one ladder are
+  one thing to do — marking either clears both — so it shows the earliest.
+- The runway lists one row per task rather than one per rung, for the same
+  reason.
+
+### Notes
+- Every added field (`end`, `cat`, `alerts`, and eleven settings) arrives through
+  `loadData`'s merge over `defaultData()`. The storage key stays `headsup:v1` and
+  there is no migration.
+- Three new invariants — see ARCHITECTURE 11-13.
+- Seed data is richer, so a fresh install demonstrates the design: fifteen
+  events across three weeks and eight lists.
+
 ## 1.1.0 — 2026-08-01
 
 `src/HeadsUp.jsx`, 3186 lines, sha256 `02ba1dc5d3914e34…`

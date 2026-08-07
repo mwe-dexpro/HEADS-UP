@@ -3,7 +3,8 @@
 Each item rates **value** and **risk to v1.0**. Risk means "how much working
 behaviour this could break", not difficulty.
 
-**Shipped since:** rule test box (1.1.0).
+**Shipped since:** rule test box (1.1.0); the Ladder surface, five calendar
+views, event editing, swipe and bulk actions, quiet hours (1.2.0).
 
 ## Suggested order
 
