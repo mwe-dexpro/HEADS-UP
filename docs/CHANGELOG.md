@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.3.1 — 2026-08-07
+
+### Fixed
+- **The app scrolled the document instead of its own pane.** `.lx` had
+  `min-height:100vh` rather than a definite height, so the flex column took its
+  height from its content: the scroll pane grew instead of scrolling, and the tab
+  bar ended up wherever the content ended — 12,617 px below the fold on Home.
+  Now `height:100dvh` with `overflow:hidden`, `min-height:0` on every flex child
+  in the scroll chain, and `height:100%` down through `html`, `body` and `#root`.
+  Verified at six viewport sizes: the document scrolls by 0, the pane scrolls,
+  and the tab bar is pinned with nothing behind it.
+- **The tab bar's height now includes the safe-area inset instead of being eaten
+  by it.** `height:72px` with `box-sizing:border-box` meant a 34 px inset left
+  38 px for the icons. The row is a constant 58 px and the inset is added below
+  it, via a `--nav-h` custom property.
+- **The bulk-action bar covered the tab bar.** It sat at `bottom:0`; it now sits
+  at `bottom:var(--nav-h)`, as the design has it. The undo toast is positioned
+  from the same variable.
+- **"Erase everything" appeared to do nothing.** Two reasons, both real: it wrote
+  `defaultData()`, which hands back the same fifteen sample events and eight
+  sample lists it just removed, and it left the Settings sheet open over the undo
+  toast that was the only evidence anything had happened. It is now
+  **ERASE EVENTS AND LISTS**, it empties them for real along with every
+  completion and snooze, it keeps your rules and settings, and it closes the
+  sheet so you can see the result and undo it.
+- Sheets carry an explicit `z-index`, so they sit above the undo toast and the
+  bulk bar rather than depending on paint order.
+
 ## 1.3.0 — 2026-08-07
 
 `src/HeadsUp.jsx`, 6163 lines

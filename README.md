@@ -88,8 +88,8 @@ set up.
 
 One catch worth knowing before you try it on a private repo: Pages publishing
 from a private repository needs GitHub Pro, Team or Enterprise. On the Free plan
-the enable step fails with a misleading *"Resource not accessible by
-integration"* — the fix is to make the repo public, or to use one of the hosts
+the enable step fails with a misleading _"Resource not accessible by
+integration"_ — the fix is to make the repo public, or to use one of the hosts
 below, which serve private repos free.
 
 The app lands at `https://<user>.github.io/<repo>/`. That subpath is why every

@@ -414,3 +414,23 @@ in the page. It works only while a tab is alive — which is the case that alrea
 worked — and it teaches the user to trust something that will fail the first time
 it matters.
 
+---
+
+### 030 — "Erase" has to mean empty
+**Accepted.** The reset button wrote `defaultData()`, which is the seed set: press
+it and fifteen sample events and eight sample lists reappear. Combined with the
+Settings sheet staying open over the undo toast, the button was indistinguishable
+from a no-op, and was reported as one.
+
+Now `ERASE EVENTS AND LISTS` empties `events`, `lists` and all reminder state,
+keeps `rules` and `settings`, and closes the sheet so the result and its undo are
+visible.
+
+*Rule to keep:* a destructive action taken from inside a sheet must close that
+sheet. The undo toast is the only feedback the app gives, and a sheet covers it —
+so an action whose sheet stays open is an action the user cannot see happen, which
+is the same thing as an action that did not happen.
+
+*Also:* the label now says what it does. "Erase everything" that keeps your rules
+and settings was overclaiming in one direction while underdelivering in the other.
+

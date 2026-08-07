@@ -20,7 +20,7 @@ import React, {
 
 const STORE_KEY = "headsup:v1";
 const HORIZON_DAYS = 400;
-const APP_VERSION = "1.3.0";
+const APP_VERSION = "1.3.1";
 /* How far ahead, and how many, the app hands to the host to schedule. Android's
    alarm scheduler and iOS both get unhappy past a few dozen pending
    notifications, and a reminder six weeks out will be republished long before
@@ -1075,9 +1075,18 @@ const CSS = `
   --danger:#b4470f; --danger-bg:#fdf4f0; --danger-line:#e8cfc2;
   --body:'Public Sans',system-ui,-apple-system,sans-serif;
   --mono:'IBM Plex Mono',ui-monospace,'SF Mono',monospace;
+  /* The tab bar's own height, safe area included, so the two things that float
+     above it can be positioned from one number. */
+  --nav-h:calc(64px + max(8px, env(safe-area-inset-bottom)));
   background:#e8e4de; color:var(--ink); font-family:var(--body);
   -webkit-font-smoothing:antialiased;
-  min-height:100vh; min-height:100dvh; display:flex; flex-direction:column;
+  /* DEFINITE height, not min-height. A flex column whose height comes from its
+     content cannot make a child scroll: the child just grows, the document
+     scrolls instead, and the tab bar ends up thousands of pixels below the fold.
+     dvh so the mobile URL bar collapsing does not clip the tab bar; vh first as
+     the fallback for browsers without it. */
+  height:100vh; height:100dvh; overflow:hidden;
+  display:flex; flex-direction:column;
 }
 .lx *,.lx *::before,.lx *::after{box-sizing:border-box}
 .lx button,.lx input,.lx textarea,.lx select{font-family:inherit}
@@ -1093,6 +1102,9 @@ const CSS = `
 .lx-phone{flex:1;width:100%;max-width:440px;margin:0 auto;min-height:0;
   display:flex;flex-direction:column;position:relative;overflow:hidden;
   background:var(--paper)}
+/* min-height:0 on a flex child is what lets it be *smaller* than its content,
+   which is the precondition for it scrolling at all. Without it the default
+   min-height:auto wins and the child refuses to shrink. */
 @media (min-width:520px){
   .lx-phone{max-height:900px;margin:22px auto;border-radius:22px;
     box-shadow:0 2px 4px rgba(0,0,0,.08),0 18px 44px rgba(0,0,0,.16)}
@@ -1102,16 +1114,19 @@ const CSS = `
   background:var(--paper)}
 .lx-status .mark{letter-spacing:.12em}
 .lx-status .end{text-align:right}
-.lx-scroll{flex:1;overflow-y:auto;overflow-x:hidden;position:relative;
-  -webkit-overflow-scrolling:touch}
+.lx-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;position:relative;
+  -webkit-overflow-scrolling:touch;
+  /* Keep the rubber band and pull-to-refresh out of a surface whose rows are
+     swiped sideways for a living. */
+  overscroll-behavior:contain}
 .lx-scroll::-webkit-scrollbar,.lx-sheet-body::-webkit-scrollbar{width:0;height:0}
 .lx-page{padding:6px 16px 26px}
 .lx-page.flush{padding:8px 0 24px}
 
 /* ---------- tab bar ---------- */
-.lx-nav{flex:none;height:72px;border-top:1px solid var(--line);background:var(--panel);
-  display:grid;grid-template-columns:repeat(4,1fr);
-  padding-bottom:max(8px,env(safe-area-inset-bottom))}
+.lx-nav{flex:none;height:var(--nav-h);border-top:1px solid var(--line);
+  background:var(--panel);display:grid;grid-template-columns:repeat(4,1fr);
+  padding-top:6px;padding-bottom:max(8px,env(safe-area-inset-bottom))}
 .lx-nav button{border:0;background:transparent;cursor:pointer;display:flex;
   flex-direction:column;align-items:center;justify-content:center;gap:6px;padding-top:6px}
 .lx-nav .lab{font:500 10.5px var(--body)}
@@ -1461,7 +1476,7 @@ const CSS = `
   font:500 11.5px var(--mono);letter-spacing:.08em;cursor:pointer}
 
 /* ---------- lists: bulk bar ---------- */
-.lx-bulk{position:absolute;left:0;right:0;bottom:0;background:var(--dark);
+.lx-bulk{position:absolute;left:0;right:0;bottom:var(--nav-h);background:var(--dark);
   box-shadow:0 -12px 30px rgba(23,22,15,.22);animation:lx-rise .16s ease both;z-index:6}
 .lx-bulk-dates{display:flex;flex-wrap:wrap;gap:7px;padding:13px 14px 3px;
   border-bottom:1px solid var(--dark-line)}
@@ -1492,7 +1507,8 @@ const CSS = `
 
 /* ---------- undo ----------
    Reversibility instead of confirmation dialogs. */
-.lx-undo{position:absolute;left:12px;right:12px;bottom:78px;background:var(--dark);
+.lx-undo{position:absolute;left:12px;right:12px;bottom:calc(var(--nav-h) + 8px);
+  background:var(--dark);
   border-radius:12px;padding:12px 12px 0;box-shadow:0 10px 28px rgba(23,22,15,.3);
   animation:lx-rise .18s ease both;z-index:5}
 .lx-undo-in{display:flex;align-items:center;justify-content:space-between;gap:12px;
@@ -1510,13 +1526,13 @@ const CSS = `
 
 /* ---------- sheets ---------- */
 .lx-sheet{position:absolute;left:0;right:0;top:0;bottom:0;background:var(--paper);
-  display:flex;flex-direction:column;animation:lx-rise .18s ease both}
+  display:flex;flex-direction:column;animation:lx-rise .18s ease both;z-index:12}
 .lx-sheet-head{flex:none;display:flex;align-items:center;justify-content:space-between;
   gap:10px;padding:14px 14px 12px;border-bottom:1px solid var(--line);
   background:var(--panel)}
 .lx-sheet-head .title{font:600 11px var(--mono);letter-spacing:.13em;color:var(--mute-2)}
 .lx-sheet-head .pad{width:56px;flex:none}
-.lx-sheet-body{flex:1;overflow:auto}
+.lx-sheet-body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
 .lx-close{height:38px;padding:0 10px;margin-left:-6px;flex:none;border:0;
   background:transparent;color:var(--mute);font:500 13px var(--body);cursor:pointer;
   text-align:left}
@@ -5192,24 +5208,65 @@ function Settings({
           )}
         </div>
 
-        <button
-          className="lx-btn-danger"
-          onClick={() =>
-            undoable(
-              { ...data, rules: defaultRules() },
-              "Rules reset to the six starters",
-            )
-          }
-        >
-          RESET ALL RULES
-        </button>
-        <button
-          className="lx-btn-danger"
-          style={{ marginTop: 10 }}
-          onClick={() => undoable(defaultData(), "Everything erased")}
-        >
-          ERASE EVERYTHING
-        </button>
+        <div className="lx-set-label">DATA</div>
+        <div className="lx-set-group">
+          <div className="lx-set-block">
+            <div className="t">Start the rules again</div>
+            <div className="d">
+              Puts the six starter rules back. Events and lists are untouched.
+            </div>
+            <button
+              className="lx-btn-danger"
+              style={{ marginTop: 11 }}
+              onClick={() => {
+                undoable(
+                  { ...data, rules: defaultRules() },
+                  "Rules reset to the six starters",
+                  "RULES REPLACED",
+                );
+                onClose();
+              }}
+            >
+              RESET ALL RULES
+            </button>
+          </div>
+          <div className="lx-set-block">
+            <div className="t">Erase events and lists</div>
+            <div className="d">
+              Removes every event, every list, and every completion and snooze
+              along with them. Your rules and these settings stay. Undoable for
+              nine seconds, and only that long.
+            </div>
+            <button
+              className="lx-btn-danger"
+              style={{ marginTop: 11 }}
+              onClick={() => {
+                /* Actually empty, rather than the sample data all over again: a
+                   button that says erase and hands back fifteen events and eight
+                   lists reads as broken, because you cannot tell it did anything. */
+                undoable(
+                  {
+                    ...data,
+                    events: [],
+                    lists: [],
+                    state: {
+                      done: {},
+                      snoozed: {},
+                      notified: [],
+                      seen: {},
+                      muted: {},
+                    },
+                  },
+                  "Events and lists erased",
+                  `${data.events.length} EVENTS · ${data.lists.length} LISTS`,
+                );
+                onClose();
+              }}
+            >
+              ERASE EVENTS AND LISTS
+            </button>
+          </div>
+        </div>
         <div className="lx-version">LADDER {APP_VERSION} · HEADS UP</div>
       </div>
     </div>

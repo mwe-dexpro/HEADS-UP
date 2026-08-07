@@ -308,6 +308,33 @@ release.
   `capDate` to drop the locale's comma. Prose keeps it.
 - Overlays (`.lx-sheet`, `.lx-bulk`, `.lx-undo`) are absolutely positioned
   siblings of the tab bar inside `.lx-phone`, not children of the scroll area.
+  `.lx-bulk` and `.lx-undo` are positioned from `--nav-h` so they float *above*
+  the tab bar; `.lx-sheet` covers it, and carries a `z-index` to say so.
+
+### The shell owns the viewport
+
+This is one rule with a whole class of bug behind it:
+
+```
+.lx      height:100dvh   overflow:hidden   (NOT min-height)
+.lx-phone   flex:1   min-height:0
+.lx-scroll  flex:1   min-height:0   overflow-y:auto
+.lx-nav     flex:none  height:var(--nav-h)
+```
+
+A flex column whose height comes from its content cannot make a child scroll —
+the child simply grows. `min-height:100vh` looks equivalent to `height:100vh` and
+is not: with it, Home's 13,000 px of cards made the *document* scroll and put the
+tab bar 12,617 px below the fold. `min-height:0` on the children matters just as
+much, because the default `min-height:auto` refuses to shrink below content size.
+
+`html`, `body` and `#root` carry `height:100%` for the same reason, and
+`overflow:hidden` so a stray pixel cannot start the document scrolling again.
+
+`--nav-h` is `64px + max(8px, env(safe-area-inset-bottom))`: a constant 58 px of
+icon row, with the inset added beneath rather than subtracted from it. Anything
+that floats above the bar must be positioned from that variable, never from a
+hard-coded `72px`.
 
 ## Component map
 
