@@ -1,9 +1,24 @@
 name: Deploy to GitHub Pages
 
-# configure-pages runs with `enablement: true`, so the first successful run turns
-# Pages on by itself using the `pages: write` token below — there is nothing to
-# click in Settings. If that step ever fails on permissions, the manual
-# equivalent is Settings → Pages → Build and deployment → Source: GitHub Actions.
+# TWO PREREQUISITES, both one-time, both outside this file. Until they are done
+# the build succeeds and configure-pages fails with "Get Pages site failed:
+# Not Found".
+#
+#  1. Pages must be enabled for the repository:
+#     Settings → Pages → Build and deployment → Source: "GitHub Actions".
+#
+#  2. Pages must be *allowed* for the repository. Publishing from a PRIVATE repo
+#     needs GitHub Pro, Team or Enterprise. On the Free plan the only options are
+#     to make the repository public or to deploy somewhere else — Cloudflare
+#     Pages and Netlify both serve private repos free. Nothing in dist/ cares
+#     which; every path it emits is relative.
+#
+# Tried and rejected: `enablement: true` on configure-pages, which is supposed to
+# create the Pages site from the workflow. The default GITHUB_TOKEN cannot do it
+# — "Create Pages site failed: Resource not accessible by integration" — so it
+# only turned one clear manual step into one confusing automatic failure.
+#
+# Once step 1 is done, re-run the last failed run; no new commit is needed.
 
 on:
   push:
@@ -35,9 +50,6 @@ jobs:
       - run: npm run build
 
       - uses: actions/configure-pages@v5
-        with:
-          # Turn Pages on for this repository if it is not on already.
-          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:

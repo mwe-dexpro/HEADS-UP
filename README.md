@@ -12,10 +12,9 @@ ink type, and one amber reserved exclusively for live. Live is a filled dark
 card, not a tint, so it is categorically different at arm's length. Labels are
 mono small-caps in fixed positions; every card scans in the same order.
 
-**Released:** 2026-08-07 · `src/HeadsUp.jsx` · 6163 lines
+**Released:** 2026-08-07 · `src/HeadsUp.jsx` · 6163 lines · `main`
 
-Each release is tagged: `git tag -l`, then `git checkout v1.2.0` for the version
-before the Android build.
+Version history is in `CHANGELOG.md`; each release is a commit on `main`.
 
 ## What works
 
@@ -83,13 +82,21 @@ domain root or in a subdirectory without a rebuild or a base-URL flag.
 
 ### GitHub Pages
 
-`.github/workflows/pages.yml` builds and deploys on every push to `main`. One
-setting is needed first, once:
+`.github/workflows/pages.yml` builds and deploys on every push to `main`. Two
+one-time prerequisites, neither of which a workflow can do for you:
 
-> Settings → Pages → Build and deployment → Source: **GitHub Actions**
+1. **Enable Pages:** Settings → Pages → Build and deployment → Source:
+   **GitHub Actions**.
+2. **Check the plan.** Publishing Pages from a **private** repository requires
+   GitHub Pro, Team or Enterprise. On the Free plan, either make the repository
+   public or use one of the hosts below — both serve private repos for free.
 
-Then push. The app lands at `https://<user>.github.io/<repo>/` — the subpath is
-why every path in `index.html`, the manifest and the service worker is relative.
+Until (1) is done the build succeeds and the deploy step fails with
+*"Get Pages site failed: Not Found"*. After it, re-run the last failed run — no
+new commit needed.
+
+The app then lands at `https://<user>.github.io/<repo>/`. That subpath is why
+every path in `index.html`, the manifest and the service worker is relative.
 
 ### Anywhere else
 
