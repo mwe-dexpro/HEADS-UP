@@ -82,21 +82,18 @@ domain root or in a subdirectory without a rebuild or a base-URL flag.
 
 ### GitHub Pages
 
-`.github/workflows/pages.yml` builds and deploys on every push to `main`. Two
-one-time prerequisites, neither of which a workflow can do for you:
+`.github/workflows/pages.yml` builds and deploys on every push to `main`, and
+enables Pages on its first run, so on a **public** repository there is nothing to
+set up.
 
-1. **Enable Pages:** Settings → Pages → Build and deployment → Source:
-   **GitHub Actions**.
-2. **Check the plan.** Publishing Pages from a **private** repository requires
-   GitHub Pro, Team or Enterprise. On the Free plan, either make the repository
-   public or use one of the hosts below — both serve private repos for free.
+One catch worth knowing before you try it on a private repo: Pages publishing
+from a private repository needs GitHub Pro, Team or Enterprise. On the Free plan
+the enable step fails with a misleading *"Resource not accessible by
+integration"* — the fix is to make the repo public, or to use one of the hosts
+below, which serve private repos free.
 
-Until (1) is done the build succeeds and the deploy step fails with
-*"Get Pages site failed: Not Found"*. After it, re-run the last failed run — no
-new commit needed.
-
-The app then lands at `https://<user>.github.io/<repo>/`. That subpath is why
-every path in `index.html`, the manifest and the service worker is relative.
+The app lands at `https://<user>.github.io/<repo>/`. That subpath is why every
+path in `index.html`, the manifest and the service worker is relative.
 
 ### Anywhere else
 
