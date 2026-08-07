@@ -1,8 +1,9 @@
 name: Deploy to GitHub Pages
 
-# One-time setup in the repository: Settings → Pages → Build and deployment →
-# Source: "GitHub Actions". Without that, this workflow builds and then fails at
-# the deploy step with a "Pages is not enabled" error.
+# configure-pages runs with `enablement: true`, so the first successful run turns
+# Pages on by itself using the `pages: write` token below — there is nothing to
+# click in Settings. If that step ever fails on permissions, the manual
+# equivalent is Settings → Pages → Build and deployment → Source: GitHub Actions.
 
 on:
   push:
@@ -34,6 +35,9 @@ jobs:
       - run: npm run build
 
       - uses: actions/configure-pages@v5
+        with:
+          # Turn Pages on for this repository if it is not on already.
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:

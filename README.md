@@ -12,9 +12,10 @@ ink type, and one amber reserved exclusively for live. Live is a filled dark
 card, not a tint, so it is categorically different at arm's length. Labels are
 mono small-caps in fixed positions; every card scans in the same order.
 
-**Tagged:** 2026-08-07 · `src/HeadsUp.jsx` · 6109 lines · sha256 `fb2d93262e4987ea…`
+**Released:** 2026-08-07 · `src/HeadsUp.jsx` · 6163 lines
 
-Earlier versions remain tagged and intact: `git checkout v1.2.0`.
+Each release is tagged: `git tag -l`, then `git checkout v1.2.0` for the version
+before the Android build.
 
 ## What works
 
