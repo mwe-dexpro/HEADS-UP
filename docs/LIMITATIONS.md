@@ -1,4 +1,4 @@
-# Known limitations in v1.3.0
+# Known limitations in v1.5.0
 
 Ranked by how likely they are to bite. These are known-wrong, not undiscovered.
 
@@ -62,6 +62,19 @@ Deliberate, but it means the window is not an absolute guarantee of silence.
 **Notification sound is a stored preference, not a tone.** Only **Silent** has an
 effect (`silent: true`); Chime, Ping and Marimba all get the platform's default.
 *Fix:* needs an audio asset and a service worker to play it when not focused.
+
+**The week and work-week grids stay cramped on a phone.** Seven columns on a
+360px screen is about forty pixels a day, which is a colour and two characters of
+a title. 1.5.0 answered it by opening on **3 DAY** instead, and by wrapping block
+titles to two lines — the week view itself is unchanged and is, in practice, a
+tablet-and-up view. *Fix:* let the grid scroll horizontally with a minimum column
+width and a sticky hour gutter; the sideways paging gesture would have to yield
+to it inside the grid.
+
+**The gesture hints are per install, not per person.** `settings.swipeSeen` lives
+in the same store as everything else, so a new browser or a cleared store shows
+the swipe hint again. Cheap and self-correcting — it disappears the first time
+either swipe is used.
 
 **The calendar grid runs 06:00–23:00.** An event at 04:00 exists, is reminded
 about, and appears in agenda and month views, but has no block in the timed

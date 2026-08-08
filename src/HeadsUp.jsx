@@ -21,7 +21,7 @@ import React, {
 
 const STORE_KEY = "headsup:v1";
 const HORIZON_DAYS = 400;
-const APP_VERSION = "1.4.0";
+const APP_VERSION = "1.5.0";
 /* How far ahead, and how many, the app hands to the host to schedule. Android's
    alarm scheduler and iOS both get unhappy past a few dozen pending
    notifications, and a reminder six weeks out will be republished long before
@@ -711,7 +711,10 @@ const defaultData = () => {
       quietTo: "07:00",
       defaultLead: 2,
       defaultSnooze: "3h",
-      calDefault: "week",
+      /* A phone is the base case: three legible columns rather than seven
+         cramped ones. Every other view is one tap away, and anyone who prefers
+         the week can pin it here — a stored choice is never overridden. */
+      calDefault: "day3",
       weekStart: "mon",
       weekNums: true,
       undatedAt: "bottom",
@@ -1098,8 +1101,19 @@ const CSS = `
   /* The tab bar's own height, safe area included, so the two things that float
      above it can be positioned from one number. */
   --nav-h:calc(64px + max(8px, env(safe-area-inset-bottom)));
+  /* One number for "a thumb can hit this". Every control that takes a tap is
+     sized from it rather than from whatever the type happened to need. */
+  --tap:44px;
+  /* 16px is the threshold below which iOS Safari zooms the page on focus. Every
+     field the user types into is set from this, so the app never jumps. */
+  --field-type:16px;
   background:#e8e4de; color:var(--ink); font-family:var(--body);
   -webkit-font-smoothing:antialiased;
+  /* Touch first: no 300ms tap delay, no grey flash on tap, no text inflation
+     when the phone is turned sideways. */
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  -webkit-text-size-adjust:100%; text-size-adjust:100%;
   /* DEFINITE height, not min-height. A flex column whose height comes from its
      content cannot make a child scroll: the child just grows, the document
      scrolls instead, and the tab bar ends up thousands of pixels below the fold.
@@ -1109,25 +1123,54 @@ const CSS = `
   display:flex; flex-direction:column;
 }
 .lx *,.lx *::before,.lx *::after{box-sizing:border-box}
-.lx button,.lx input,.lx textarea,.lx select{font-family:inherit}
+.lx button,.lx input,.lx textarea,.lx select{font-family:inherit;touch-action:manipulation}
 .lx button:focus-visible,.lx input:focus-visible,.lx textarea:focus-visible,
 .lx select:focus-visible,.lx [tabindex]:focus-visible{
   outline:2px solid var(--amber-ink); outline-offset:2px}
+/* Touch has no hover, so a press has to answer instead. Every button dips very
+   slightly under the finger; the two second-long ones say so more loudly. */
+.lx button:active{opacity:.72}
+.lx button:disabled:active{opacity:1}
+/* Hover is a bonus for the pointer devices that have one, never a requirement:
+   nothing is only discoverable by hovering it. */
+@media (hover:hover) and (pointer:fine){
+  .lx-listrow:hover,.lx-hit:hover,.lx-selrow:hover,.lx-ag-item:hover{background:var(--panel)}
+  .lx-led:hover{background:var(--sunk)}
+}
 .lx-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;
   clip:rect(0 0 0 0);white-space:nowrap;border:0}
 @keyframes lx-undobar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 @keyframes lx-rise{from{transform:translateY(10px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes lx-sheet-in{from{transform:translateY(26px);opacity:.4}to{transform:translateY(0);opacity:1}}
+@media (prefers-reduced-motion:reduce){
+  .lx *,.lx *::before,.lx *::after{
+    animation-duration:.001ms !important;animation-iteration-count:1 !important;
+    transition-duration:.001ms !important}
+}
 
-/* ---------- shell ---------- */
+/* ---------- shell ----------
+   The phone is the base case, not a breakpoint: full bleed, safe-area insets
+   honoured, nothing but the frame added back at desktop widths. */
 .lx-phone{flex:1;width:100%;max-width:440px;margin:0 auto;min-height:0;
   display:flex;flex-direction:column;position:relative;overflow:hidden;
-  background:var(--paper)}
+  background:var(--paper);
+  /* A notch in landscape eats the left or right edge; the app pays for it once,
+     here, rather than in every page's padding. */
+  padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
 /* min-height:0 on a flex child is what lets it be *smaller* than its content,
    which is the precondition for it scrolling at all. Without it the default
    min-height:auto wins and the child refuses to shrink. */
 @media (min-width:520px){
   .lx-phone{max-height:900px;margin:22px auto;border-radius:22px;
     box-shadow:0 2px 4px rgba(0,0,0,.08),0 18px 44px rgba(0,0,0,.16)}
+}
+/* A phone lying on its side has almost no height to spare: give the vertical
+   chrome back to the content. */
+@media (max-height:520px) and (orientation:landscape){
+  .lx{--nav-h:calc(52px + max(4px, env(safe-area-inset-bottom)))}
+  .lx-status{display:none}
+  .lx-nav{padding-top:2px}
+  .lx-nav button{gap:3px}
 }
 .lx-status{height:26px;flex:none;display:grid;grid-template-columns:1fr auto 1fr;
   align-items:center;padding:0 18px;font:500 10.5px var(--mono);color:var(--mute-3);
@@ -1332,7 +1375,9 @@ const CSS = `
 .lx-block-note{font:400 11px var(--body);color:var(--mute-4)}
 .lx-panel{background:var(--card);border:1px solid var(--line-2);border-radius:13px;
   padding:14px 15px 16px}
-.lx-runway-t{font:600 15.5px var(--body);color:var(--ink);text-wrap:pretty}
+.lx-runway-t{font:600 15.5px var(--body);color:var(--ink);text-wrap:pretty;
+  display:block;width:100%;border:0;background:transparent;text-align:left;
+  cursor:pointer;min-height:var(--tap);padding:6px 0;margin:-6px 0}
 .lx-runway-m{font:500 10.5px var(--mono);color:var(--mute-3);margin-top:4px;
   letter-spacing:.06em}
 .lx-track{position:relative;height:56px;margin:18px 0 4px}
@@ -1372,14 +1417,14 @@ const CSS = `
   text-overflow:ellipsis;white-space:nowrap}
 .lx-handled .m{font:500 9.5px var(--mono);color:var(--mute-4);margin-top:3px;
   letter-spacing:.06em}
-.lx-putback{flex:none;height:34px;padding:0 12px;border:1px solid var(--field);
-  border-radius:7px;background:var(--panel);color:var(--mute);font:500 12px var(--body);
+.lx-putback{flex:none;height:var(--tap);padding:0 14px;border:1px solid var(--field);
+  border-radius:9px;background:var(--panel);color:var(--mute);font:500 13px var(--body);
   cursor:pointer}
 .lx-quiet-note{font:400 12.5px var(--body);color:var(--mute-4);padding:4px 2px}
 
 /* ---------- rules: the test box ---------- */
-.lx-btn-out{height:36px;padding:0 12px;flex:none;border:1px solid var(--field-2);
-  border-radius:8px;background:var(--card);color:var(--ink);font:500 12.5px var(--body);
+.lx-btn-out{height:var(--tap);padding:0 14px;flex:none;border:1px solid var(--field-2);
+  border-radius:9px;background:var(--card);color:var(--ink);font:500 13.5px var(--body);
   cursor:pointer}
 .lx-testbox{background:var(--dark);border-radius:14px;padding:14px 14px 15px;
   margin-bottom:20px}
@@ -1388,14 +1433,14 @@ const CSS = `
 .lx-test-k{font:600 9.5px var(--mono);letter-spacing:.13em;color:var(--amber)}
 .lx-test-d{font:500 9.5px var(--mono);letter-spacing:.06em;color:var(--dark-label);
   white-space:nowrap}
-.lx-input-dark{width:100%;height:46px;border:1px solid var(--dark-border);
+.lx-input-dark{width:100%;height:50px;border:1px solid var(--dark-border);
   border-radius:9px;background:var(--dark-2);color:var(--on-ink);
   font:400 16px var(--body);padding:0 13px;outline:none}
 .lx-input-dark::placeholder{color:var(--dark-label)}
 .lx-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
-.lx-chip-dark{height:30px;padding:0 9px;border:1px solid var(--dark-border);
-  border-radius:6px;background:transparent;color:var(--dark-meta);
-  font:500 10.5px var(--mono);cursor:pointer}
+.lx-chip-dark{height:var(--tap);padding:0 14px;border:1px solid var(--dark-border);
+  border-radius:8px;background:transparent;color:var(--dark-meta);
+  font:500 11px var(--mono);cursor:pointer}
 .lx-test-out{margin-top:13px;padding-top:12px;border-top:1px solid var(--dark-line)}
 .lx-verdict{font:500 9.5px var(--mono);letter-spacing:.11em;color:var(--dark-label);
   margin-bottom:9px}
@@ -1446,35 +1491,40 @@ const CSS = `
   margin:18px 0 8px}
 .lx-fieldlabel:first-child{margin-top:13px}
 .lx-kwedit{display:flex;flex-wrap:wrap;gap:6px}
-.lx-kwedit .k{font:500 12px var(--mono);color:var(--blue);background:var(--blue-bg);
-  border:1px solid var(--blue-line);border-radius:6px;padding:5px 6px 5px 9px;
-  display:inline-flex;align-items:center;gap:4px}
+.lx-kwedit .k{font:500 12.5px var(--mono);color:var(--blue);background:var(--blue-bg);
+  border:1px solid var(--blue-line);border-radius:9px;padding:0 4px 0 11px;
+  min-height:var(--tap);display:inline-flex;align-items:center;gap:2px}
 .lx-kwedit .k button{border:0;background:transparent;color:var(--blue-mute);
-  font:500 12px var(--mono);cursor:pointer;padding:2px 4px;line-height:1}
-.lx-add{height:33px;padding:0 10px;border:1px dashed #cfd8e3;border-radius:6px;
-  background:transparent;color:#7b8da0;font:500 12px var(--mono);cursor:pointer}
-.lx-kwinput{height:33px;width:120px;border:1px solid var(--blue-line);border-radius:6px;
-  background:var(--card);color:var(--blue);font:500 12px var(--mono);padding:0 8px;
+  font:500 16px var(--mono);cursor:pointer;line-height:1;
+  /* Removing a keyword is its own target, the full height of the chip. */
+  width:var(--tap);height:var(--tap);display:flex;
+  align-items:center;justify-content:center}
+.lx-add{height:var(--tap);padding:0 14px;border:1px dashed #cfd8e3;border-radius:9px;
+  background:transparent;color:#7b8da0;font:500 12.5px var(--mono);cursor:pointer}
+.lx-kwinput{height:var(--tap);width:140px;border:1px solid var(--blue-line);border-radius:9px;
+  background:var(--card);color:var(--blue);font:500 var(--field-type) var(--mono);padding:0 10px;
   outline:none}
 .lx-tasks{display:flex;flex-direction:column;gap:9px}
 .lx-task{border:1px solid var(--line-4);border-radius:10px;padding:11px 11px 12px;
   background:var(--panel)}
 .lx-task-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
-.lx-task-name{font:500 14.5px var(--body);color:var(--ink);border:0;background:transparent;
-  padding:0;outline:none;min-width:0;flex:1}
+.lx-task-name{font:500 var(--field-type) var(--body);color:var(--ink);border:0;
+  background:transparent;padding:6px 0;outline:none;min-width:0;flex:1;
+  min-height:var(--tap)}
 .lx-task-count{font:500 9.5px var(--mono);letter-spacing:.06em;color:var(--mute-3);
   white-space:nowrap}
 .lx-task-count.dead{color:var(--warn)}
-.lx-task-x{border:0;background:transparent;color:var(--mute-5);font:400 15px var(--body);
-  cursor:pointer;padding:0 2px;line-height:1}
+.lx-task-x{border:0;background:transparent;color:var(--mute-5);font:400 19px var(--body);
+  cursor:pointer;line-height:1;flex:none;width:var(--tap);height:var(--tap);
+  margin:-10px -12px -10px -4px;display:flex;align-items:center;justify-content:center}
 .lx-leadchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.lx-leadchip{height:34px;min-width:44px;padding:0 10px;border:1px solid #e0dbd0;
-  border-radius:7px;background:transparent;color:var(--mute-3);
-  font:500 11.5px var(--mono);cursor:pointer}
+.lx-leadchip{height:var(--tap);min-width:54px;padding:0 12px;border:1px solid #e0dbd0;
+  border-radius:9px;background:transparent;color:var(--mute-3);
+  font:500 12px var(--mono);cursor:pointer}
 .lx-leadchip.on{background:var(--ink);border-color:var(--ink);color:var(--on-ink)}
 .lx-task-dead{margin-top:9px;font:400 11.5px/1.4 var(--body);color:var(--warn)}
 .lx-rule-act{display:flex;gap:8px;margin-top:14px}
-.lx-btn-warn{width:96px;flex:none;height:44px;border:1px solid var(--warn-line);
+.lx-btn-warn{width:96px;flex:none;height:var(--tap);border:1px solid var(--warn-line);
   border-radius:9px;background:transparent;color:var(--warn);font:500 14px var(--body);
   cursor:pointer}
 .lx-catchall{margin-top:20px;background:var(--card);border:1px solid var(--line-2);
@@ -1485,32 +1535,37 @@ const CSS = `
   text-wrap:pretty}
 
 /* ---------- toggles ---------- */
-.lx-toggle{flex:none;width:46px;height:28px;border-radius:14px;border:0;
+.lx-toggle{flex:none;width:52px;height:32px;border-radius:16px;border:0;
   background:var(--field);position:relative;cursor:pointer;transition:background .16s ease}
-.lx-toggle i{position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:12px;
+.lx-toggle i{position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:13px;
   background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.25);
   transition:left .16s ease;display:block}
+/* The switch reads at 52×32; the thing a thumb actually hits is 44 tall and
+   overhangs it, which is why this is a pseudo-element and not padding. */
+.lx-toggle::after{content:'';position:absolute;left:-4px;right:-4px;
+  top:calc(50% - var(--tap) / 2);height:var(--tap)}
 .lx-toggle.on{background:var(--ink)}
-.lx-toggle.on i{left:20px}
-.lx-toggle.lg{width:50px;height:30px;border-radius:15px}
-.lx-toggle.lg i{top:3px;left:3px}
-.lx-toggle.lg.on i{left:23px}
+.lx-toggle.on i{left:23px}
+.lx-toggle.lg{width:58px;height:34px;border-radius:17px}
+.lx-toggle.lg i{top:3px;left:3px;width:28px;height:28px;border-radius:14px}
+.lx-toggle.lg.on i{left:27px}
 
 /* ---------- lists ---------- */
-.lx-input{width:100%;height:46px;border:1px solid var(--field);border-radius:11px;
-  background:var(--card);color:var(--ink);font:400 15px var(--body);padding:0 14px;
-  outline:none}
-.lx-input.tall{height:48px}
+.lx-input{width:100%;height:48px;border:1px solid var(--field);border-radius:11px;
+  background:var(--card);color:var(--ink);font:400 var(--field-type) var(--body);
+  padding:0 14px;outline:none}
+.lx-input.tall{height:52px}
 .lx-input::placeholder{color:var(--mute-4)}
 .lx-hit{border:0;background:var(--card);text-align:left;padding:12px 13px;cursor:pointer;
-  display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  min-height:52px;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .lx-hit .t{font:500 15px var(--body);color:var(--ink)}
 .lx-hit .l{font:500 9.5px var(--mono);letter-spacing:.08em;color:var(--blue);
   white-space:nowrap}
 .lx-seam.r11{border-radius:11px}
 .lx-seam.r12{border-radius:12px}
 .lx-listrow{border:0;background:var(--card);text-align:left;padding:0;cursor:pointer;
-  display:grid;grid-template-columns:4px 1fr auto;align-items:stretch;min-height:60px}
+  display:grid;grid-template-columns:5px 1fr auto;align-items:stretch;min-height:64px;
+  width:100%;-webkit-user-select:none;user-select:none}
 .lx-listrow .bar{display:block}
 .lx-listrow .mid{display:flex;flex-direction:column;justify-content:center;gap:5px;
   padding:11px 0 11px 13px;min-width:0}
@@ -1566,7 +1621,7 @@ const CSS = `
   box-shadow:0 -12px 30px rgba(23,22,15,.22);animation:lx-rise .16s ease both;z-index:6}
 .lx-bulk-dates{display:flex;flex-wrap:wrap;gap:7px;padding:13px 14px 3px;
   border-bottom:1px solid var(--dark-line)}
-.lx-bulk-date{height:38px;padding:0 12px;border:1px solid var(--dark-border);
+.lx-bulk-date{height:var(--tap);padding:0 14px;border:1px solid var(--dark-border);
   border-radius:9px;background:var(--dark-2);color:var(--dark-value);
   font:600 10.5px var(--mono);letter-spacing:.1em;cursor:pointer;margin-bottom:10px}
 .lx-bulk-lists{max-height:186px;overflow:auto;border-bottom:1px solid var(--dark-line)}
@@ -1579,7 +1634,7 @@ const CSS = `
   padding:11px 14px 8px}
 .lx-bulk-n{font:600 10.5px var(--mono);letter-spacing:.13em;color:var(--amber)}
 .lx-bulk-hint{font:400 12px var(--body);color:var(--dark-meta);margin-top:3px}
-.lx-bulk-mini{height:34px;padding:0 11px;border:1px solid var(--dark-border);
+.lx-bulk-mini{height:var(--tap);padding:0 14px;border:1px solid var(--dark-border);
   border-radius:8px;background:transparent;color:var(--dark-meta);
   font:600 10px var(--mono);letter-spacing:.1em;cursor:pointer}
 .lx-bulk-acts{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;padding:0 14px 14px}
@@ -1603,30 +1658,41 @@ const CSS = `
   text-overflow:ellipsis;white-space:nowrap}
 .lx-undo .m{font:500 9.5px var(--mono);color:var(--dark-meta);margin-top:3px;
   letter-spacing:.07em}
-.lx-undo-btn{flex:none;height:38px;padding:0 15px;border:1px solid var(--amber);
+.lx-undo-btn{flex:none;height:var(--tap);padding:0 17px;border:1px solid var(--amber);
   border-radius:8px;background:transparent;color:var(--amber);font:600 13px var(--body);
   cursor:pointer}
 .lx-undo-bar{height:2px;background:var(--dark-line);border-radius:1px;overflow:hidden}
 .lx-undo-bar i{display:block;height:2px;background:var(--amber);transform-origin:left;
   animation:lx-undobar 9s linear both}
 
-/* ---------- sheets ---------- */
+/* ---------- sheets ----------
+   A sheet is a whole screen on a phone, and it is dismissed the way a phone
+   dismisses things: dragged down by its head. The Close button stays for the
+   keyboard and for anyone who would rather tap. */
 .lx-sheet{position:absolute;left:0;right:0;top:0;bottom:0;background:var(--paper);
-  display:flex;flex-direction:column;animation:lx-rise .18s ease both;z-index:12}
+  display:flex;flex-direction:column;animation:lx-sheet-in .2s ease;z-index:12;
+  will-change:transform}
 .lx-sheet-head{flex:none;display:flex;align-items:center;justify-content:space-between;
-  gap:10px;padding:14px 14px 12px;border-bottom:1px solid var(--line);
-  background:var(--panel)}
+  gap:10px;padding:6px 14px 12px;border-bottom:1px solid var(--line);
+  background:var(--panel);touch-action:pan-x;-webkit-user-select:none;user-select:none}
 .lx-sheet-head .title{font:600 11px var(--mono);letter-spacing:.13em;color:var(--mute-2)}
 .lx-sheet-head .pad{width:56px;flex:none}
-.lx-sheet-body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
-.lx-close{height:38px;padding:0 10px;margin-left:-6px;flex:none;border:0;
-  background:transparent;color:var(--mute);font:500 13px var(--body);cursor:pointer;
-  text-align:left}
-.lx-edit{height:38px;padding:0 14px;flex:none;border:1px solid var(--field);
-  border-radius:9px;background:var(--card);color:var(--blue);font:600 11px var(--mono);
+/* The grabber is the whole width of the head, so the drag starts wherever the
+   thumb happens to land rather than only on the 36px pill it draws. */
+.lx-grab{flex:none;display:flex;align-items:center;justify-content:center;height:22px;
+  background:var(--panel);touch-action:pan-x;-webkit-user-select:none;user-select:none;
+  cursor:grab}
+.lx-grab i{display:block;width:38px;height:4px;border-radius:2px;background:var(--field-2)}
+.lx-sheet-body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch}
+.lx-close{height:var(--tap);padding:0 10px;margin-left:-6px;flex:none;border:0;
+  background:transparent;color:var(--mute);font:500 13.5px var(--body);cursor:pointer;
+  text-align:left;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lx-edit{height:var(--tap);padding:0 16px;flex:none;border:1px solid var(--field);
+  border-radius:10px;background:var(--card);color:var(--blue);font:600 11px var(--mono);
   letter-spacing:.1em;cursor:pointer}
-.lx-cancel{height:38px;padding:0 14px;flex:none;border:0;background:transparent;
-  color:var(--mute-2);font:500 13px var(--body);cursor:pointer}
+.lx-cancel{height:var(--tap);padding:0 14px;flex:none;border:0;background:transparent;
+  color:var(--mute-2);font:500 13.5px var(--body);cursor:pointer}
 .lx-savenote{font:500 9.5px var(--mono);letter-spacing:.12em;color:var(--mute-5)}
 
 /* ---------- sheets: reading an event ---------- */
@@ -1647,14 +1713,14 @@ const CSS = `
 .lx-form-h{font:600 20px var(--body);color:var(--ink);letter-spacing:-.012em}
 .lx-lab{font:500 9.5px var(--mono);letter-spacing:.12em;color:var(--mute-4);
   margin-bottom:6px}
-.lx-in{width:100%;height:46px;border:1px solid var(--field);border-radius:10px;
-  background:var(--card);color:var(--ink);font:500 16px var(--body);padding:0 12px;
-  outline:none}
-.lx-in.mono{font:500 14px var(--mono)}
-.lx-in.plain{font:400 14.5px var(--body)}
+.lx-in{width:100%;height:50px;border:1px solid var(--field);border-radius:10px;
+  background:var(--card);color:var(--ink);font:500 var(--field-type) var(--body);
+  padding:0 12px;outline:none}
+.lx-in.mono{font:500 var(--field-type) var(--mono)}
+.lx-in.plain{font:400 var(--field-type) var(--body)}
 .lx-in::placeholder{color:var(--mute-4)}
 .lx-ta{width:100%;border:1px solid var(--field);border-radius:10px;background:var(--card);
-  color:var(--ink-2);font:400 13.5px/1.5 var(--body);padding:11px 12px;outline:none;
+  color:var(--ink-2);font:400 var(--field-type)/1.5 var(--body);padding:12px;outline:none;
   resize:none}
 .lx-ta::placeholder{color:var(--mute-4)}
 .lx-rowcard{display:flex;align-items:center;justify-content:space-between;gap:12px;
@@ -1663,16 +1729,16 @@ const CSS = `
 .lx-rowcard .t{font:500 14px var(--body);color:var(--ink)}
 .lx-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .lx-daynote{font:400 11.5px var(--body);color:var(--mute-3);margin-top:6px}
-.lx-formact{display:flex;gap:8px;margin-top:2px}
 .lx-save{flex:1;height:48px;border:0;border-radius:11px;background:var(--ink);
   color:var(--on-ink);font:600 12px var(--mono);letter-spacing:.1em;cursor:pointer}
 .lx-kill{height:48px;padding:0 16px;flex:none;border:1px solid var(--danger-line);
   border-radius:11px;background:var(--danger-bg);color:var(--danger);
   font:600 12px var(--mono);letter-spacing:.1em;cursor:pointer}
-.lx-chip{height:38px;padding:0 12px;border:1px solid var(--field);border-radius:9px;
-  background:var(--card);color:var(--mute);font:600 10.5px var(--mono);
+.lx-chip{height:var(--tap);padding:0 15px;border:1px solid var(--field);border-radius:10px;
+  background:var(--card);color:var(--mute);font:600 11px var(--mono);
   letter-spacing:.08em;cursor:pointer;white-space:nowrap}
-.lx-chip.sm{height:36px;padding:0 11px}
+/* "sm" is narrower, never shorter — the height is the part a thumb needs. */
+.lx-chip.sm{padding:0 12px}
 .lx-chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
 .lx-chip.ink.on{background:var(--ink);border-color:var(--ink);color:var(--on-ink)}
 .lx-chip.danger{color:var(--danger);border-color:var(--danger-line)}
@@ -1687,9 +1753,9 @@ const CSS = `
 .lx-td-title:focus{border-color:var(--field);background:var(--card)}
 .lx-td-card{background:var(--card);border:1px solid var(--line-2);border-radius:12px;
   padding:13px 13px 14px}
-.lx-td-date{width:calc(100% + 8px);margin:0 -4px;padding:0 4px;height:34px;border:0;
+.lx-td-date{width:calc(100% + 8px);margin:0 -4px;padding:0 4px;height:46px;border:0;
   border-bottom:1px solid var(--line-3);border-radius:0;background:transparent;
-  color:var(--ink);font:500 15px var(--mono);outline:none}
+  color:var(--ink);font:500 var(--field-type) var(--mono);outline:none}
 .lx-hr{height:1px;background:var(--line-3);margin:14px 0 13px}
 .lx-locked{font:400 11.5px/1.4 var(--body);color:var(--mute-3);margin-top:8px}
 .lx-steps{display:flex;flex-direction:column;gap:1px;background:var(--seam);
@@ -1702,17 +1768,20 @@ const CSS = `
   background:transparent;color:var(--on-ink);font:600 11px/20px var(--body);display:block;
   text-align:center;font-style:normal}
 .lx-step-box.on i{background:var(--ink);border-color:var(--ink)}
-.lx-step input{width:100%;height:38px;border:0;background:transparent;color:var(--ink);
-  font:400 14px var(--body);padding:0;outline:none}
+.lx-step input{width:100%;height:var(--tap);border:0;background:transparent;color:var(--ink);
+  font:400 var(--field-type) var(--body);padding:0;outline:none}
 .lx-step input.draft{padding-left:31px}
 .lx-step .when{font:500 9px var(--mono);color:var(--mute-4);letter-spacing:.06em;
   white-space:nowrap}
 .lx-step-x{width:44px;height:44px;margin:0 -12px 0 -6px;border:0;background:transparent;
   color:var(--mute-5);font:400 17px var(--body);cursor:pointer;padding:0}
-.lx-select-full{width:100%;height:46px;border:1px solid var(--line-2);border-radius:12px;
-  background:var(--card);color:var(--ink);font:400 14.5px var(--body);padding:0 10px;
-  outline:none}
-.lx-sheet-foot{flex:none;display:flex;gap:8px;padding:12px 14px 16px;
+.lx-select-full{width:100%;height:50px;border:1px solid var(--line-2);border-radius:12px;
+  background:var(--card);color:var(--ink);font:400 var(--field-type) var(--body);
+  padding:0 10px;outline:none}
+/* The commit row never scrolls away: on a phone the thing you came to do has to
+   be under your thumb whatever the form's length. */
+.lx-sheet-foot{flex:none;display:flex;gap:8px;padding:12px 14px;
+  padding-bottom:max(16px, env(safe-area-inset-bottom));
   border-top:1px solid var(--line);background:var(--panel)}
 
 /* ---------- settings ---------- */
@@ -1729,16 +1798,16 @@ const CSS = `
 .lx-set-block{padding:13px 13px}
 .lx-set-block .t{font:500 14.5px var(--body);color:var(--ink);margin-bottom:9px}
 .lx-seg{display:grid;gap:2px;padding:2px;background:var(--line-4);border-radius:9px}
-.lx-seg button{height:32px;border:0;border-radius:7px;background:transparent;
-  color:var(--mute-2);font:600 10px var(--mono);letter-spacing:.07em;cursor:pointer;
+.lx-seg button{height:40px;border:0;border-radius:7px;background:transparent;
+  color:var(--mute-2);font:600 10.5px var(--mono);letter-spacing:.07em;cursor:pointer;
   white-space:nowrap;overflow:hidden}
 .lx-seg button.on{background:var(--ink);color:var(--on-ink)}
-.lx-select{flex:none;width:150px;height:40px;border:1px solid var(--field);
-  border-radius:9px;background:var(--panel);color:var(--ink);font:400 13.5px var(--body);
-  padding:0 8px;outline:none}
-.lx-time{width:100%;height:42px;border:1px solid var(--field);border-radius:9px;
-  background:var(--panel);color:var(--ink);font:500 13.5px var(--mono);padding:0 10px;
-  outline:none}
+.lx-select{flex:none;width:150px;height:var(--tap);border:1px solid var(--field);
+  border-radius:9px;background:var(--panel);color:var(--ink);
+  font:400 var(--field-type) var(--body);padding:0 8px;outline:none}
+.lx-time{width:100%;height:48px;border:1px solid var(--field);border-radius:9px;
+  background:var(--panel);color:var(--ink);font:500 var(--field-type) var(--mono);
+  padding:0 10px;outline:none}
 .lx-minilabel{font:500 9px var(--mono);letter-spacing:.11em;color:var(--mute-4);
   margin-bottom:5px}
 .lx-btn-danger{width:100%;height:46px;border:1px solid var(--danger-line);
@@ -1746,7 +1815,8 @@ const CSS = `
   font:600 11.5px var(--mono);letter-spacing:.09em;cursor:pointer}
 .lx-version{text-align:center;font:500 9.5px var(--mono);letter-spacing:.1em;
   color:var(--mute-5);margin-top:16px}
-.lx-file{display:block;width:100%;font:400 12.5px var(--body);color:var(--mute-2)}
+.lx-file{display:block;width:100%;font:400 14px var(--body);color:var(--mute-2);
+  padding:10px 0}
 .lx-warnline{background:var(--warn-bg);border:1px solid var(--warn-line);
   border-radius:10px;padding:10px 12px;font:400 12.5px/1.45 var(--body);
   color:var(--warn-text);margin-bottom:14px}
@@ -1761,9 +1831,10 @@ const CSS = `
 .lx-kwbadge{font:600 9.5px var(--mono);color:var(--mute);background:var(--line-4);
   border-radius:4px;padding:3px 6px 2px;letter-spacing:.08em;white-space:nowrap}
 .lx-cal-nav{flex:none;display:flex;align-items:center;gap:4px}
-.lx-cal-nav button{width:38px;height:38px;border:1px solid var(--line);border-radius:9px;
-  background:var(--card);color:var(--mute);font:400 15px var(--body);cursor:pointer}
-.lx-cal-nav button.today{width:auto;padding:0 11px;font:600 10.5px var(--mono);
+.lx-cal-nav button{width:var(--tap);height:var(--tap);border:1px solid var(--line);
+  border-radius:10px;background:var(--card);color:var(--mute);font:400 17px var(--body);
+  cursor:pointer}
+.lx-cal-nav button.today{width:auto;padding:0 13px;font:600 10.5px var(--mono);
   letter-spacing:.09em}
 .lx-cal-seg{margin-top:12px}
 .lx-cal-gridhead{display:flex;padding:0 10px 4px;border-bottom:1px solid var(--line)}
@@ -1773,9 +1844,9 @@ const CSS = `
 .lx-col .dow{font:600 9px var(--mono);letter-spacing:.09em}
 .lx-col .num{font:600 15px var(--body);margin-top:2px}
 .lx-allday{display:flex;flex-direction:column;gap:2px;margin-top:4px;padding:0 2px}
-.lx-allday button{border:0;border-radius:4px;font:500 8.5px/13px var(--mono);
-  padding:2px 3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  cursor:pointer;text-align:left}
+.lx-allday button{border:0;border-radius:4px;font:500 8.5px/15px var(--mono);
+  min-height:19px;padding:2px 3px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;cursor:pointer;text-align:left}
 .lx-cal-body{display:flex;padding:0 10px}
 .lx-hours{width:36px;flex:none;position:relative}
 .lx-hour{height:44px;font:500 9px var(--mono);color:var(--mute-4);padding-top:3px}
@@ -1785,8 +1856,11 @@ const CSS = `
 .lx-ev{position:absolute;border:0;border-left:3px solid var(--ink);
   border-radius:0 5px 5px 0;padding:3px 4px;text-align:left;overflow:hidden;
   cursor:pointer;z-index:2}
-.lx-ev .t{font:600 9.5px/1.15 var(--body);color:var(--ink);overflow:hidden;
-  text-overflow:ellipsis;white-space:nowrap}
+/* Two lines before the ellipsis: on a narrow column one line is rarely a
+   title, it is a prefix. */
+.lx-ev .t{font:600 9.5px/1.2 var(--body);color:var(--ink);overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow-wrap:anywhere}
 .lx-ev .m{font:500 8px var(--mono);color:var(--mute);margin-top:2px}
 .lx-nowline{position:absolute;left:0;right:0;height:1.5px;background:var(--amber-ink);
   z-index:3;pointer-events:none}
@@ -1816,8 +1890,9 @@ const CSS = `
 .lx-agenda-head{display:flex;align-items:center;gap:9px;margin-bottom:8px}
 .lx-agenda-head .day{font:600 10px var(--mono);letter-spacing:.13em;color:var(--mute-2)}
 .lx-agenda-head .tag{font:600 9px var(--mono);letter-spacing:.1em}
-.lx-agenda-add{width:30px;height:30px;margin:-6px;flex:none;border:0;
-  background:transparent;color:var(--mute-4);font:400 16px var(--body);cursor:pointer}
+.lx-agenda-add{width:var(--tap);height:var(--tap);margin:-8px -12px -8px -6px;flex:none;
+  border:0;background:transparent;color:var(--mute-4);font:400 18px var(--body);
+  cursor:pointer}
 .lx-ag-item{width:100%;border:1px solid var(--line-2);border-left:4px solid var(--ink);
   border-radius:0 12px 12px 0;background:var(--card);text-align:left;padding:11px 13px;
   cursor:pointer;display:flex;flex-direction:column;gap:5px}
@@ -1828,6 +1903,76 @@ const CSS = `
   letter-spacing:.05em}
 .lx-ag-item .where{display:block;font:400 12.5px/1.35 var(--body);color:var(--mute-2)}
 .lx-newq{display:flex;flex-direction:column;gap:9px}
+
+/* ---------- home: a swipeable ledger row ----------
+   The ledger bleeds to both edges, so the wrapper carries the bleed and the row
+   inside it goes back to zero margin. Without that the underlay would show in
+   the gap between rows while a swipe is in flight. */
+.lx-swb{position:relative;overflow:hidden;margin:0 -16px;touch-action:pan-y;
+  -webkit-user-select:none;user-select:none}
+.lx-swb.live{margin-bottom:22px}
+.lx-swb .lx-led{margin-left:0;margin-right:0;margin-bottom:0}
+.lx-swb-under{position:absolute;inset:0;display:flex;align-items:center;
+  pointer-events:none}
+.lx-swb-under.done{background:var(--green)}
+.lx-swb-under.snooze{background:var(--ink);justify-content:flex-end}
+.lx-swb-under .lab{font:600 10.5px var(--mono);letter-spacing:.13em;color:#fff;
+  padding:0 18px}
+.lx-swb-under.snooze .lab{color:var(--amber)}
+/* The hint sits under the first row only, and only until the gesture has been
+   used once. A gesture nobody knows about is not a control. */
+.lx-gesture-hint{display:flex;align-items:center;justify-content:center;gap:7px;
+  margin:0 0 18px;font:500 9.5px var(--mono);letter-spacing:.1em;color:var(--mute-4)}
+.lx-gesture-hint b{font-weight:600;color:var(--mute-2)}
+
+/* ---------- quick actions ----------
+   What a long press opens: the row's whole verb list, one tap from the thumb,
+   pinned to the bottom of the screen rather than floating in the middle. */
+.lx-scrim{position:absolute;inset:0;background:rgba(23,22,15,.34);z-index:14;
+  border:0;padding:0;width:100%;cursor:pointer;animation:lx-fade .14s ease both}
+@keyframes lx-fade{from{opacity:0}to{opacity:1}}
+.lx-quick{position:absolute;left:8px;right:8px;bottom:calc(var(--nav-h) + 8px);
+  background:var(--dark);border-radius:16px;overflow:hidden;z-index:15;
+  box-shadow:0 12px 34px rgba(23,22,15,.34);animation:lx-rise .17s ease both}
+.lx-quick-head{padding:13px 16px 11px;border-bottom:1px solid var(--dark-line)}
+.lx-quick-head .k{font:600 9.5px var(--mono);letter-spacing:.13em;color:var(--amber)}
+.lx-quick-head .t{font:600 16px/1.25 var(--body);color:var(--on-ink);margin-top:5px;
+  text-wrap:pretty}
+.lx-quick-acts{display:flex;flex-direction:column}
+.lx-quick-acts button{border:0;border-top:1px solid var(--dark-line);background:transparent;
+  color:var(--dark-value);text-align:left;padding:0 16px;height:54px;
+  font:400 15px var(--body);cursor:pointer;display:flex;align-items:center;
+  justify-content:space-between;gap:12px}
+.lx-quick-acts button:first-child{border-top:0}
+.lx-quick-acts button .at{font:500 10px var(--mono);color:var(--dark-meta);
+  letter-spacing:.06em}
+.lx-quick-acts button.go{color:var(--amber);font-weight:600}
+.lx-quick-acts button.kill{color:#e08b6a}
+
+/* ---------- the sticky bits ----------
+   Primary actions live at the bottom of the reach, not the bottom of the page. */
+.lx-sticky-top{position:sticky;top:0;z-index:3;background:var(--paper);
+  margin:0 -16px 18px;padding:2px 16px 10px;
+  box-shadow:0 8px 10px -8px rgba(23,22,15,.14)}
+.lx-sticky-act{position:sticky;bottom:0;z-index:3;background:var(--paper);
+  margin:0 -16px;padding:10px 16px 8px;
+  box-shadow:0 -8px 10px -8px rgba(23,22,15,.14)}
+
+/* ---------- lists: naming, accent, deleting ---------- */
+.lx-listhead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.lx-namebtn{flex:1;min-width:0;text-align:left;border:0;background:transparent;padding:0;
+  cursor:pointer;display:block}
+.lx-namebtn .pen{font:500 10px var(--mono);letter-spacing:.1em;color:var(--mute-4);
+  margin-left:8px;vertical-align:middle;white-space:nowrap}
+.lx-accents{display:flex;flex-wrap:wrap;gap:10px}
+.lx-accent{width:var(--tap);height:var(--tap);border-radius:12px;border:2px solid transparent;
+  cursor:pointer;padding:3px;background:transparent}
+.lx-accent i{display:block;width:100%;height:100%;border-radius:9px}
+.lx-accent.on{border-color:var(--ink)}
+.lx-namefield{width:100%;height:56px;border:1px solid var(--field);border-radius:12px;
+  background:var(--card);color:var(--ink);font:600 19px var(--body);padding:0 14px;
+  outline:none}
+.lx-namefield::placeholder{color:var(--mute-4);font-weight:400}
 `;
 
 /* ============================================================
@@ -2032,9 +2177,11 @@ function TabIcon({ name }) {
 }
 
 /* ---------- swipe + long press ----------
-   Right clears the row, left deletes it, a long press starts a selection.
-   The gesture only claims the pointer once it is unambiguously horizontal, so
-   vertical scrolling is never stolen.                                       */
+   Right is the affirmative action, left is the corrective one, a long press
+   opens everything else. In a list that means done and delete; on the home
+   ledger it means done and snooze. The gesture only claims the pointer once it
+   is unambiguously horizontal, so vertical scrolling is never stolen.
+   A row that offers no action in one direction simply springs back.        */
 const SWIPE_T = 76;
 const SWIPE_CAP = 150;
 
@@ -2099,6 +2246,9 @@ function useSwipe(haptics) {
       const dx = e.clientX - s.x;
       const dy = e.clientY - s.y;
       if (Math.abs(dx) + Math.abs(dy) > 6) clearTimeout(lp.current);
+      /* A row that only wants the long press never enters the drag machinery,
+         so scrolling past it costs nothing. */
+      if (o.pressOnly) return;
       if (!s.live) {
         if (Math.abs(dx) < 7) return;
         if (Math.abs(dy) > Math.abs(dx)) {
@@ -2130,14 +2280,17 @@ function useSwipe(haptics) {
       }
       if (!s || s.id !== id || !s.live) return;
       noTap.current = Date.now();
-      if (Math.abs(s.dx) >= SWIPE_T) {
+      /* onDone/onDelete are the list's names for the two directions; onRight
+         and onLeft are the general ones. A missing handler means that side of
+         the row does nothing, so the row springs back instead of flying off. */
+      const run = s.dx > 0 ? o.onRight || o.onDone : o.onLeft || o.onDelete;
+      if (Math.abs(s.dx) >= SWIPE_T && run) {
         buzz(8);
         setSt({ id, dx: s.dx > 0 ? 460 : -460, anim: true });
         clearTimeout(out.current);
         out.current = setTimeout(() => {
           rest();
-          if (s.dx > 0) o.onDone();
-          else o.onDelete();
+          run();
         }, 190);
       } else {
         setSt({ id, dx: 0, anim: true });
@@ -2155,6 +2308,182 @@ function useSwipe(haptics) {
   const dxFor = (id) => (st.id === id ? st.dx : 0);
 
   return { bind, dxFor, anim: st.anim, tapBlocked, buzz };
+}
+
+/* ---------- drag a sheet away ----------
+   A full-screen sheet on a phone is dismissed by pulling it down, not by
+   hunting for a Close button in the corner. The drag is claimed only when the
+   move is clearly downward, so a sideways or upward start still belongs to
+   whatever is underneath.                                                   */
+const SHEET_T = 96;
+
+function useSheetDrag(onClose) {
+  const [dy, setDy] = useState(0);
+  const [anim, setAnim] = useState(false);
+  const st = useRef(null);
+  const cur = useRef(0);
+  cur.current = dy;
+
+  const land = (close) => {
+    setAnim(true);
+    setDy(0);
+    if (close) onClose();
+  };
+
+  const bind = {
+    onPointerDown: (e) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      /* The head carries buttons; a press that starts on one is that button's. */
+      if (e.target.closest && e.target.closest("button,input,select,textarea"))
+        return;
+      st.current = {
+        x: e.clientX,
+        y: e.clientY,
+        live: false,
+        target: e.currentTarget,
+        pid: e.pointerId,
+      };
+      setAnim(false);
+    },
+    onPointerMove: (e) => {
+      const s = st.current;
+      if (!s) return;
+      const dx = e.clientX - s.x;
+      const y = e.clientY - s.y;
+      if (!s.live) {
+        if (Math.abs(dx) > Math.abs(y) || y < -6) {
+          st.current = null;
+          return;
+        }
+        if (y < 7) return;
+        s.live = true;
+        try {
+          if (s.target.setPointerCapture) s.target.setPointerCapture(s.pid);
+        } catch (err) {
+          /* capture unsupported */
+        }
+      }
+      setDy(Math.max(0, y));
+    },
+    onPointerUp: () => {
+      const s = st.current;
+      st.current = null;
+      if (!s || !s.live) return;
+      land(cur.current > SHEET_T);
+    },
+    onPointerCancel: () => {
+      st.current = null;
+      if (cur.current) land(false);
+    },
+  };
+
+  const style = dy
+    ? {
+        transform: `translateY(${dy}px)`,
+        transition: anim ? "transform .2s cubic-bezier(.2,.8,.2,1)" : "none",
+      }
+    : {
+        transition: anim ? "transform .2s cubic-bezier(.2,.8,.2,1)" : "none",
+      };
+
+  return { bind, style, dragging: dy > 0 };
+}
+
+/* ---------- page left and right ----------
+   The calendar steps a period per swipe. Bound on the whole view rather than on
+   a strip, because most of a calendar is buttons and a gesture you have to aim
+   at is not a gesture — a click that follows a real swipe is swallowed in the
+   capture phase instead.                                                     */
+const PAGE_T = 62;
+
+function usePager(onPrev, onNext, buzz, opts = {}) {
+  const [dx, setDx] = useState(0);
+  const [anim, setAnim] = useState(false);
+  const st = useRef(null);
+  const cur = useRef(0);
+  const blocked = useRef(0);
+  cur.current = dx;
+
+  const bind = {
+    onPointerDown: (e) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      /* Typing beats paging: a field keeps its own pointer. */
+      if (e.target.closest && e.target.closest("input,select,textarea")) return;
+      /* opts.ignore keeps the gesture off anything that swipes for itself —
+         a page and the rows inside it cannot both own a horizontal drag. */
+      if (opts.ignore && e.target.closest && e.target.closest(opts.ignore))
+        return;
+      /* opts.edge makes this a back gesture rather than a paging one: it only
+         starts within that many pixels of the left edge. */
+      if (opts.edge != null) {
+        const r = e.currentTarget.getBoundingClientRect();
+        if (e.clientX - r.left > opts.edge) return;
+      }
+      st.current = {
+        x: e.clientX,
+        y: e.clientY,
+        live: false,
+        target: e.currentTarget,
+        pid: e.pointerId,
+      };
+      setAnim(false);
+    },
+    onPointerMove: (e) => {
+      const s = st.current;
+      if (!s) return;
+      const x = e.clientX - s.x;
+      const y = e.clientY - s.y;
+      if (!s.live) {
+        if (Math.abs(x) < 12) return;
+        if (Math.abs(y) > Math.abs(x)) {
+          st.current = null;
+          return;
+        }
+        s.live = true;
+        try {
+          if (s.target.setPointerCapture) s.target.setPointerCapture(s.pid);
+        } catch (err) {
+          /* capture unsupported */
+        }
+      }
+      /* Damped: the grid does not follow the finger one to one, it leans. */
+      setDx(Math.max(-120, Math.min(120, x * 0.4)));
+    },
+    onPointerUp: () => {
+      const s = st.current;
+      st.current = null;
+      if (!s || !s.live) return;
+      blocked.current = Date.now();
+      const d = cur.current;
+      setAnim(true);
+      setDx(0);
+      if (Math.abs(d) >= PAGE_T * 0.4) {
+        if (buzz) buzz(8);
+        if (d > 0) onPrev();
+        else onNext();
+      }
+    },
+    onPointerCancel: () => {
+      st.current = null;
+      setAnim(true);
+      setDx(0);
+    },
+    /* The slots and day cells under the finger are buttons; a swipe across them
+       must not also open whatever it passed over. */
+    onClickCapture: (e) => {
+      if (Date.now() - blocked.current < 320) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    },
+  };
+
+  const style = {
+    transform: dx ? `translateX(${dx}px)` : undefined,
+    transition: anim ? "transform .22s cubic-bezier(.2,.8,.2,1)" : "none",
+  };
+
+  return { bind, style };
 }
 
 /* ---------- nudge presentation ----------
@@ -2468,17 +2797,7 @@ function Runway({ runway, now, onOpenEvent }) {
         <span className="lx-block-note">next event</span>
       </div>
       <div className="lx-panel">
-        <button
-          className="lx-runway-t"
-          onClick={onOpenEvent}
-          style={{
-            border: 0,
-            background: "transparent",
-            padding: 0,
-            textAlign: "left",
-            cursor: "pointer",
-          }}
-        >
+        <button className="lx-runway-t" onClick={onOpenEvent}>
           {ev.title}
         </button>
         <div className="lx-runway-m">
@@ -2542,6 +2861,41 @@ function Runway({ runway, now, onOpenEvent }) {
   );
 }
 
+/* The ledger row, wrapped in its gesture. Right is done, left is a snooze by
+   the default duration; anything else is one long press away. The wrapper owns
+   the full-bleed margins so the underlay never shows in the gap between rows. */
+function LedgerSwipe({ id, live, swipe, onDone, onSnooze, onQuick, children }) {
+  const dx = swipe.dxFor(id);
+  const bind = swipe.bind(id, {
+    onRight: onDone,
+    onLeft: onSnooze,
+    onLongPress: onQuick,
+  });
+  return (
+    <div className={`lx-swb${live ? " live" : ""}`}>
+      <div className="lx-swb-under done" style={{ opacity: dx > 0 ? 1 : 0 }}>
+        <span className="lab">{dx >= SWIPE_T ? "RELEASE · DONE" : "DONE"}</span>
+      </div>
+      <div className="lx-swb-under snooze" style={{ opacity: dx < 0 ? 1 : 0 }}>
+        <span className="lab">
+          {-dx >= SWIPE_T ? "RELEASE · SNOOZE" : "SNOOZE"}
+        </span>
+      </div>
+      <div
+        style={{
+          transform: `translateX(${dx}px)`,
+          transition: swipe.anim
+            ? "transform .24s cubic-bezier(.2,.8,.2,1)"
+            : "none",
+        }}
+        {...bind}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function Home({
   live,
   queued,
@@ -2550,9 +2904,11 @@ function Home({
   counts,
   now,
   settings,
+  swipe,
   onDone,
   onRestore,
   onSnooze,
+  onQuick,
   onOpenSettings,
   onOpenEvent,
   newCount,
@@ -2560,6 +2916,25 @@ function Home({
 }) {
   const [open, setOpen] = useState(null);
   const [snoozeFor, setSnoozeFor] = useState(null);
+
+  /* One place decides what a swipe means, so the live row and the queued rows
+     cannot drift apart. The left swipe takes the default snooze; the whole
+     list of times stays behind the long press and the Snooze button. */
+  const quickSnooze = (n) => {
+    const first = snoozeOptions(now, settings)[0];
+    if (!first) return;
+    onSnooze(n, first.at, true);
+  };
+  const swipeDone = (n) => {
+    setOpen(null);
+    setSnoozeFor(null);
+    onDone(n, true);
+  };
+  /* A gesture that has just ended must not also count as a tap on the row. */
+  const guarded = (fn) => () => {
+    if (swipe.tapBlocked()) return;
+    fn();
+  };
 
   const buckets = BUCKETS.map(([key, label]) => ({
     key,
@@ -2628,31 +3003,51 @@ function Home({
           band and the full body. Anything else already due sits directly under
           it as an amber-railed row — nothing hidden, nothing collapsed. */}
       {live[0] && (
-        <LiveCard
-          n={live[0]}
-          now={now}
-          settings={settings}
-          weekStart={settings.weekStart}
-          open={open === live[0].id}
-          snoozing={snoozeFor === live[0].id}
-          onToggle={() => {
-            setOpen(open === live[0].id ? null : live[0].id);
-            setSnoozeFor(null);
-          }}
-          onSnoozeOpen={() => {
-            setSnoozeFor(snoozeFor === live[0].id ? null : live[0].id);
-            setOpen(null);
-          }}
-          onDone={() => {
-            setSnoozeFor(null);
-            setOpen(null);
-            onDone(live[0]);
-          }}
-          onSnooze={(at) => {
-            setSnoozeFor(null);
-            onSnooze(live[0], at);
-          }}
-        />
+        <LedgerSwipe
+          id={live[0].id}
+          live
+          swipe={swipe}
+          onDone={() => swipeDone(live[0])}
+          onSnooze={() => quickSnooze(live[0])}
+          onQuick={() => onQuick(live[0].id)}
+        >
+          <LiveCard
+            n={live[0]}
+            now={now}
+            settings={settings}
+            weekStart={settings.weekStart}
+            open={open === live[0].id}
+            snoozing={snoozeFor === live[0].id}
+            onToggle={guarded(() => {
+              setOpen(open === live[0].id ? null : live[0].id);
+              setSnoozeFor(null);
+            })}
+            onSnoozeOpen={guarded(() => {
+              setSnoozeFor(snoozeFor === live[0].id ? null : live[0].id);
+              setOpen(null);
+            })}
+            onDone={guarded(() => {
+              setSnoozeFor(null);
+              setOpen(null);
+              onDone(live[0]);
+            })}
+            onSnooze={(at) => {
+              if (swipe.tapBlocked()) return;
+              setSnoozeFor(null);
+              onSnooze(live[0], at);
+            }}
+          />
+        </LedgerSwipe>
+      )}
+
+      {/* A gesture nobody has been told about is not a control. The line goes
+          away for good the first time a row is swiped. */}
+      {!settings.swipeSeen && (live.length > 0 || queued.length > 0) && (
+        <div className="lx-gesture-hint">
+          <span>
+            SWIPE <b>→ DONE</b> · <b>← SNOOZE</b> · HOLD FOR MORE
+          </span>
+        </div>
       )}
 
       {live.length > 1 && (
@@ -2660,19 +3055,27 @@ function Home({
           <SectionHead label="ALSO DUE NOW" count={String(live.length - 1)} />
           <div className="lx-led-list">
             {live.slice(1).map((n) => (
-              <QueuedCard
+              <LedgerSwipe
                 key={n.id}
-                n={n}
-                now={now}
-                weekStart={settings.weekStart}
-                live
-                open={open === n.id}
-                onToggle={() => setOpen(open === n.id ? null : n.id)}
-                onDone={() => {
-                  setOpen(null);
-                  onDone(n);
-                }}
-              />
+                id={n.id}
+                swipe={swipe}
+                onDone={() => swipeDone(n)}
+                onSnooze={() => quickSnooze(n)}
+                onQuick={() => onQuick(n.id)}
+              >
+                <QueuedCard
+                  n={n}
+                  now={now}
+                  weekStart={settings.weekStart}
+                  live
+                  open={open === n.id}
+                  onToggle={guarded(() => setOpen(open === n.id ? null : n.id))}
+                  onDone={guarded(() => {
+                    setOpen(null);
+                    onDone(n);
+                  })}
+                />
+              </LedgerSwipe>
             ))}
           </div>
         </div>
@@ -2694,18 +3097,26 @@ function Home({
           <SectionHead label={b.label} count={String(b.items.length)} />
           <div className="lx-led-list">
             {b.items.map((n) => (
-              <QueuedCard
+              <LedgerSwipe
                 key={n.id}
-                n={n}
-                now={now}
-                weekStart={settings.weekStart}
-                open={open === n.id}
-                onToggle={() => setOpen(open === n.id ? null : n.id)}
-                onDone={() => {
-                  setOpen(null);
-                  onDone(n);
-                }}
-              />
+                id={n.id}
+                swipe={swipe}
+                onDone={() => swipeDone(n)}
+                onSnooze={() => quickSnooze(n)}
+                onQuick={() => onQuick(n.id)}
+              >
+                <QueuedCard
+                  n={n}
+                  now={now}
+                  weekStart={settings.weekStart}
+                  open={open === n.id}
+                  onToggle={guarded(() => setOpen(open === n.id ? null : n.id))}
+                  onDone={guarded(() => {
+                    setOpen(null);
+                    onDone(n);
+                  })}
+                />
+              </LedgerSwipe>
             ))}
           </div>
         </div>
@@ -2745,6 +3156,53 @@ function Home({
         )}
       </div>
     </div>
+  );
+}
+
+/* ---------- quick actions ----------
+   Everything a reminder can do, one thumb-length from the bottom of the screen.
+   A long press on any ledger row opens it; the two swipes are shortcuts into
+   the first two entries, and they say so.                                   */
+function QuickActions({ n, now, settings, onClose, onDone, onSnooze, onOpen }) {
+  return (
+    <>
+      <button
+        className="lx-scrim"
+        aria-label="Close quick actions"
+        onClick={onClose}
+      />
+      <div className="lx-quick" role="dialog" aria-label="Quick actions">
+        <div className="lx-quick-head">
+          <div className="k">{`${originOf(n)} · ${rungOf(n)}`}</div>
+          <div className="t">{n.label}</div>
+        </div>
+        <div className="lx-quick-acts">
+          <button className="go" onClick={onDone}>
+            <span>Mark done</span>
+            <span className="at">SWIPE →</span>
+          </button>
+          {snoozeOptions(now, settings).map((o, i) => (
+            <button key={o.label} onClick={() => onSnooze(o.at)}>
+              <span>{o.label}</span>
+              <span className="at">
+                {i === 0
+                  ? `← SWIPE · ${snoozeAtLabel(o.at, now)}`
+                  : snoozeAtLabel(o.at, now)}
+              </span>
+            </button>
+          ))}
+          <button onClick={onOpen}>
+            <span>
+              {n.kind === "todo" ? "Open the to-do" : "Open the event"}
+            </span>
+            <span className="at">›</span>
+          </button>
+          <button className="kill" onClick={onClose}>
+            <span>Cancel</span>
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -3414,8 +3872,116 @@ function TodoRow({
   );
 }
 
+/* ---------- naming a list ----------
+   A list is named when it is made and renamed whenever it stops fitting. The
+   same sheet does both, so there is one place to learn.                     */
+function ListSheet({ list, onSave, onDelete, onClose }) {
+  const creating = !list;
+  const [name, setName] = useState(creating ? "" : list.name);
+  const [accent, setAccent] = useState(
+    creating ? null : list.accent || ACCENTS[0],
+  );
+  const drag = useSheetDrag(onClose);
+  const open = creating ? 0 : (list.items || []).filter((i) => !i.done).length;
+  const commit = () => onSave(name, accent);
+
+  return (
+    <div
+      className="lx-sheet"
+      role="dialog"
+      aria-label={creating ? "New list" : "List settings"}
+      style={drag.style}
+    >
+      <div className="lx-grab" aria-hidden="true" {...drag.bind}>
+        <i />
+      </div>
+      <div className="lx-sheet-head" {...drag.bind}>
+        <button className="lx-close" onClick={onClose}>
+          ‹ Close
+        </button>
+        <span className="title">{creating ? "NEW LIST" : "LIST"}</span>
+        <span className="pad" />
+      </div>
+
+      <div className="lx-sheet-body">
+        <div className="lx-form">
+          <div>
+            <div className="lx-lab">NAME</div>
+            <input
+              className="lx-namefield"
+              value={name}
+              autoFocus
+              enterKeyHint="done"
+              placeholder="What is this list for?"
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  e.target.blur();
+                  commit();
+                }
+              }}
+              aria-label="List name"
+            />
+            <div className="lx-daynote">
+              {creating
+                ? "You can rename it later from the list's own screen."
+                : "Renaming is safe — nothing inside the list is keyed to its name."}
+            </div>
+          </div>
+
+          <div>
+            <div className="lx-lab">COLOUR</div>
+            <div className="lx-accents">
+              {ACCENTS.map((a, i) => (
+                <button
+                  key={a}
+                  className={`lx-accent${a === accent ? " on" : ""}`}
+                  onClick={() => setAccent(a)}
+                  aria-pressed={a === accent}
+                  aria-label={`Colour ${i + 1}`}
+                >
+                  <i style={{ background: a }} />
+                </button>
+              ))}
+            </div>
+            <div className="lx-daynote">
+              The colour is the rail on this list's reminders in the ledger.
+            </div>
+          </div>
+
+          {!creating && (
+            <div className="lx-quiet-note">
+              {`${open} open item${open === 1 ? "" : "s"}. Deleting the list deletes them too — undo is offered for nine seconds.`}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="lx-sheet-foot">
+        <button className="lx-save" onClick={commit}>
+          {creating ? "CREATE LIST" : "SAVE"}
+        </button>
+        {!creating && (
+          <button className="lx-kill" onClick={onDelete}>
+            DELETE
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- overview ---------- */
-function ListsOverview({ data, now, onPick, onPickItem, onNewList }) {
+function ListsOverview({
+  data,
+  now,
+  swipe,
+  onPick,
+  onPickItem,
+  onNewList,
+  onEditList,
+}) {
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
   const hits = [];
@@ -3480,7 +4046,14 @@ function ListsOverview({ data, now, onPick, onPickItem, onNewList }) {
                 <button
                   className="lx-listrow"
                   key={l.id}
-                  onClick={() => onPick(l.id)}
+                  onClick={() => {
+                    if (swipe.tapBlocked()) return;
+                    onPick(l.id);
+                  }}
+                  {...swipe.bind(l.id, {
+                    pressOnly: true,
+                    onLongPress: () => onEditList(l.id),
+                  })}
                 >
                   <span className="bar" style={{ background: m.barFg }} />
                   <span className="mid">
@@ -3497,13 +4070,17 @@ function ListsOverview({ data, now, onPick, onPickItem, onNewList }) {
               );
             })}
           </div>
-          <button
-            className="lx-dash"
-            style={{ marginTop: 10 }}
-            onClick={onNewList}
-          >
-            + New list
-          </button>
+          <div className="lx-gesture-hint" style={{ margin: "12px 0 0" }}>
+            <span>HOLD A LIST TO RENAME IT</span>
+          </div>
+          {/* Pinned to the bottom of the reach rather than the bottom of the
+              page: with a screenful of lists the create action would otherwise
+              be the one thing a thumb cannot get to. */}
+          <div className="lx-sticky-act" style={{ marginTop: 10 }}>
+            <button className="lx-dash" onClick={onNewList}>
+              + New list
+            </button>
+          </div>
         </>
       )}
     </div>
@@ -3520,6 +4097,7 @@ function ListDetail({
   sel,
   setSel,
   onOpenTodo,
+  onEditList,
   onBack,
 }) {
   const [draft, setDraft] = useState("");
@@ -3532,6 +4110,13 @@ function ListDetail({
     .sort((a, b) => new Date(a.due) - new Date(b.due));
   const undated = open.filter((i) => !i.due);
   const selMode = sel.length > 0;
+  /* Back is a swipe from the left edge as well as a button, because the button
+     is in the one corner of a phone a thumb cannot reach. Rows swipe for
+     themselves, so the gesture refuses to start on one. */
+  const back = usePager(onBack, () => {}, swipe.buzz, {
+    edge: 30,
+    ignore: ".lx-sw,button",
+  });
   const rail = (item) =>
     item.due && new Date(item.due) < startOfDay(now)
       ? "var(--amber-ink)"
@@ -3610,36 +4195,66 @@ function ListDetail({
   );
 
   return (
-    <div className="lx-page">
+    <div className="lx-page" style={back.style} {...back.bind}>
       <div style={{ padding: "6px 0 12px" }}>
         <button className="lx-back" onClick={onBack}>
           ‹ All lists
         </button>
-        <div className="lx-h1" style={{ marginTop: 4, lineHeight: 1.15 }}>
-          {list.name}
-        </div>
-        <div
-          className="lx-h1-sub"
-          style={{ marginTop: 5, letterSpacing: ".09em", fontSize: 10 }}
-        >
-          {`${open.length} OPEN · ${dated.length} DATED · ${doneItems.length} DONE`}
+        {/* The name is the control. Tapping it — or the ⋯ — opens the same
+            sheet the list was created in, so renaming is where the name is. */}
+        <div className="lx-listhead" style={{ marginTop: 4 }}>
+          <button
+            className="lx-namebtn"
+            onClick={onEditList}
+            aria-label={`Rename ${list.name}`}
+          >
+            <span
+              className="lx-h1"
+              style={{ display: "block", lineHeight: 1.15 }}
+            >
+              {list.name}
+              <span className="pen">RENAME</span>
+            </span>
+            <span
+              className="lx-h1-sub"
+              style={{
+                display: "block",
+                marginTop: 5,
+                letterSpacing: ".09em",
+                fontSize: 10,
+              }}
+            >
+              {`${open.length} OPEN · ${dated.length} DATED · ${doneItems.length} DONE`}
+            </span>
+          </button>
+          <button
+            className="lx-dots"
+            onClick={onEditList}
+            aria-label="List settings"
+          >
+            ⋯
+          </button>
         </div>
       </div>
 
-      <input
-        className="lx-input tall"
-        style={{ marginBottom: 18 }}
-        value={draft}
-        placeholder={`Add to ${list.name}`}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && draft.trim()) {
-            ops.addItem(list.id, draft.trim());
-            setDraft("");
-          }
-        }}
-        aria-label={`Add to ${list.name}`}
-      />
+      {/* Adding is the reason this screen exists, so the field follows the
+          scroll instead of disappearing off the top of it. */}
+      <div className="lx-sticky-top">
+        <input
+          className="lx-input tall"
+          value={draft}
+          enterKeyHint="done"
+          placeholder={`Add to ${list.name}`}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && draft.trim()) {
+              ops.addItem(list.id, draft.trim());
+              setDraft("");
+            }
+          }}
+          aria-label={`Add to ${list.name}`}
+        />
+      </div>
 
       {data.settings.undatedAt === "top" ? (
         <>
@@ -3803,6 +4418,7 @@ function TodoSheet({ data, list, item, now, ops, onClose }) {
     .filter((r) => r.kind === "lead")
     .map((r) => r.days);
   const patch = (p) => ops.patchItem(list.id, item.id, p);
+  const drag = useSheetDrag(onClose);
 
   const dateChips = [
     ["TODAY", 0],
@@ -3811,8 +4427,16 @@ function TodoSheet({ data, list, item, now, ops, onClose }) {
   ];
 
   return (
-    <div className="lx-sheet" role="dialog" aria-label={item.title || "To-do"}>
-      <div className="lx-sheet-head">
+    <div
+      className="lx-sheet"
+      role="dialog"
+      aria-label={item.title || "To-do"}
+      style={drag.style}
+    >
+      <div className="lx-grab" aria-hidden="true" {...drag.bind}>
+        <i />
+      </div>
+      <div className="lx-sheet-head" {...drag.bind}>
         <button className="lx-close" onClick={onClose}>
           ‹ {list.name}
         </button>
@@ -4071,6 +4695,7 @@ function CalendarTab({
   data,
   now,
   unreviewed,
+  swipe,
   seedView,
   onSeedUsed,
   onOpenEvent,
@@ -4150,6 +4775,12 @@ function CalendarTab({
       );
   };
 
+  /* Swiping the calendar sideways steps a period, whatever the view is showing
+     — the ‹ › buttons stay for anyone who would rather aim. The review queue is
+     the one view with no period to step, so it is left alone. */
+  const pager = usePager(step(-1), step(1), swipe.buzz);
+  const paged = view === "new" ? {} : pager.bind;
+
   /* ----- grid columns ----- */
   const columns = days.map((day) => {
     const all = eventsOn(day);
@@ -4226,7 +4857,11 @@ function CalendarTab({
       : `KW ${isoWeek(days[0] || anchor)}`;
 
   return (
-    <div className="lx-page flush">
+    <div
+      className="lx-page flush"
+      style={view === "new" ? undefined : pager.style}
+      {...paged}
+    >
       <div className="lx-cal-head">
         <div className="lx-cal-top">
           <div>
@@ -4259,6 +4894,13 @@ function CalendarTab({
         <div className="lx-cal-seg">
           <Seg options={views} value={view} onPick={setView} />
         </div>
+        {view !== "new" && (
+          <div className="lx-gesture-hint" style={{ margin: "10px 0 0" }}>
+            <span>
+              SWIPE <b>←</b> OR <b>→</b> TO STEP
+            </span>
+          </div>
+        )}
       </div>
 
       {isGrid && (
@@ -4341,7 +4983,11 @@ function CalendarTab({
                     onClick={() => onOpenEvent(b.e.id)}
                   >
                     <div className="t">{b.e.title}</div>
-                    <div className="m">{fmtTime(b.e.start)}</div>
+                    {/* A half-hour block has room for a title or a time, not
+                        both. The title wins. */}
+                    {b.height >= 42 && (
+                      <div className="m">{fmtTime(b.e.start)}</div>
+                    )}
                   </button>
                 ))}
                 {c.today && (
@@ -4600,14 +5246,19 @@ function EventSheet({
   const cat = catOf(event ? event.cat : draft && draft.cat);
   const set = (patch) => setDraft({ ...draft, ...patch });
   const draftDay = draft ? new Date(`${draft.date}T00:00:00`) : null;
+  const drag = useSheetDrag(onClose);
 
   return (
     <div
       className="lx-sheet"
       role="dialog"
       aria-label={editing ? "Edit event" : "Event"}
+      style={drag.style}
     >
-      <div className="lx-sheet-head">
+      <div className="lx-grab" aria-hidden="true" {...drag.bind}>
+        <i />
+      </div>
+      <div className="lx-sheet-head" {...drag.bind}>
         <button className="lx-close" onClick={onClose}>
           ‹ Close
         </button>
@@ -4681,7 +5332,8 @@ function EventSheet({
               </div>
             </div>
             <div className="lx-note">
-              Read-only. Tap EDIT to change anything.
+              Read-only. Tap Edit — at the top, or under your thumb below — to
+              change anything.
             </div>
           </div>
         )}
@@ -4829,19 +5481,32 @@ function EventSheet({
                 aria-label="Notes"
               />
             </div>
-            <div className="lx-formact">
-              <button className="lx-save" onClick={onSave}>
-                SAVE
-              </button>
-              {draft.id && (
-                <button className="lx-kill" onClick={onDelete}>
-                  DELETE
-                </button>
-              )}
-            </div>
           </div>
         )}
       </div>
+
+      {/* The commit row is a fixed foot rather than the last thing in a long
+          scroll: on a phone, Save is never a scroll away from wherever the
+          keyboard left you. */}
+      {editing && draft && (
+        <div className="lx-sheet-foot">
+          <button className="lx-save" onClick={onSave}>
+            SAVE
+          </button>
+          {draft.id && (
+            <button className="lx-kill" onClick={onDelete}>
+              DELETE
+            </button>
+          )}
+        </div>
+      )}
+      {!editing && event && (
+        <div className="lx-sheet-foot">
+          <button className="lx-save" onClick={onEdit}>
+            EDIT EVENT
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -4971,6 +5636,7 @@ function Settings({
   const S = data.settings;
   const put = (patch) => persist({ ...data, settings: { ...S, ...patch } });
   const [importOpen, setImportOpen] = useState(false);
+  const drag = useSheetDrag(onClose);
 
   const sources = ["ics", "manual", "sample"]
     .map((k) => ({
@@ -4985,8 +5651,16 @@ function Settings({
   };
 
   return (
-    <div className="lx-sheet" role="dialog" aria-label="Settings">
-      <div className="lx-sheet-head">
+    <div
+      className="lx-sheet"
+      role="dialog"
+      aria-label="Settings"
+      style={drag.style}
+    >
+      <div className="lx-grab" aria-hidden="true" {...drag.bind}>
+        <i />
+      </div>
+      <div className="lx-sheet-head" {...drag.bind}>
         <button className="lx-close" onClick={onClose}>
           ‹ Close
         </button>
@@ -5392,6 +6066,11 @@ export default function HeadsUp({ onSchedule }) {
   const [draft, setDraft] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [calSeed, setCalSeed] = useState(null);
+  /* The long-press menu for a ledger row, and the list naming sheet. Both are
+     held by id rather than by object: everything they describe is derived on
+     every render, so a stored copy would go stale the moment it is edited. */
+  const [quickId, setQuickId] = useState(null);
+  const [listEdit, setListEdit] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -5655,19 +6334,34 @@ export default function HeadsUp({ onSchedule }) {
           },
     );
 
-  const markNudgeDone = (n) => {
+  /* The swipe hint retires on the first swipe — folded into the same object the
+     action was already writing. Two persists built from the same `data` inside
+     one handler would clobber each other, and the flag is the one that loses. */
+  const withSwipeSeen = (next, viaSwipe) =>
+    viaSwipe && !data.settings.swipeSeen
+      ? { ...next, settings: { ...next.settings, swipeSeen: true } }
+      : next;
+
+  const markNudgeDone = (n, viaSwipe) => {
     const cleared = nudges.filter((x) => x.doneKey === n.doneKey).length;
     const meta = cleared > 1 ? `DONE · CLEARED ${cleared} LEAD TIMES` : "DONE";
     if (n.kind === "todo")
-      return undoable(setTodoNudgeDone(n, true), n.label, meta);
+      return undoable(
+        withSwipeSeen(setTodoNudgeDone(n, true), viaSwipe),
+        n.label,
+        meta,
+      );
     undoable(
-      {
-        ...data,
-        state: {
-          ...data.state,
-          done: { ...data.state.done, [n.doneKey]: new Date().toISOString() },
+      withSwipeSeen(
+        {
+          ...data,
+          state: {
+            ...data.state,
+            done: { ...data.state.done, [n.doneKey]: new Date().toISOString() },
+          },
         },
-      },
+        viaSwipe,
+      ),
       n.label,
       meta,
     );
@@ -5678,15 +6372,18 @@ export default function HeadsUp({ onSchedule }) {
     delete done[n.doneKey];
     persist({ ...data, state: { ...data.state, done } });
   };
-  const snoozeNudge = (n, at) =>
+  const snoozeNudge = (n, at, viaSwipe) =>
     undoable(
-      {
-        ...data,
-        state: {
-          ...data.state,
-          snoozed: { ...data.state.snoozed, [n.id]: at.toISOString() },
+      withSwipeSeen(
+        {
+          ...data,
+          state: {
+            ...data.state,
+            snoozed: { ...data.state.snoozed, [n.id]: at.toISOString() },
+          },
         },
-      },
+        viaSwipe,
+      ),
       n.label,
       `SNOOZED TO ${snoozeAtLabel(at, now)}`,
     );
@@ -5868,16 +6565,45 @@ export default function HeadsUp({ onSchedule }) {
         `TO ${target ? target.name.toUpperCase() : "ANOTHER LIST"}`,
       );
     },
-    addList: () => {
+    /* A list is named by the person making it, not by a counter. The name and
+       the accent both arrive from the sheet; both stay editable afterwards. */
+    addList: (name, accent) => {
       const list = {
         id: `list-${uid()}`,
-        name: `List ${data.lists.length + 1}`,
-        accent: nextAccent(data.lists),
+        name: (name || "").trim() || `List ${data.lists.length + 1}`,
+        accent: accent || nextAccent(data.lists),
         items: [],
       };
       persist({ ...data, lists: [...data.lists, list] });
+      setListEdit(null);
       setListId(list.id);
     },
+    /* Renaming is a plain patch: nothing keys off a list's name. The to-do
+       nudges carry listName, but they are derived on every render, so the
+       origin line on the home ledger follows the rename immediately. */
+    patchListMeta: (lid, patch) => {
+      const name = patch.name != null ? patch.name.trim() : null;
+      persist(
+        patchList(lid, (l) => ({
+          ...l,
+          ...patch,
+          ...(patch.name != null ? { name: name || l.name } : {}),
+        })),
+      );
+    },
+    deleteList: (l) =>
+      guard(`Delete “${l.name}” and everything in it?`, () => {
+        const count = (l.items || []).filter((i) => !i.done).length;
+        setListEdit(null);
+        setOpenTodo(null);
+        setListId(null);
+        setSel([]);
+        undoable(
+          { ...data, lists: data.lists.filter((x) => x.id !== l.id) },
+          l.name,
+          `LIST DELETED · ${count} OPEN ITEM${count === 1 ? "" : "S"}`,
+        );
+      }),
   };
 
   /* ---------- event actions ---------- */
@@ -6052,6 +6778,16 @@ export default function HeadsUp({ onSchedule }) {
   const list = listId ? data.lists.find((l) => l.id === listId) : null;
   const todo =
     list && openTodo ? (list.items || []).find((i) => i.id === openTodo) : null;
+  /* Both overlays are addressed by id and resolved here, against this render's
+     data. A quick-action menu holding a stale nudge would act on a due time
+     that no longer exists. */
+  const quickNudge = quickId
+    ? [...live, ...queued].find((n) => n.id === quickId) || null
+    : null;
+  const editedList =
+    listEdit && listEdit !== "new"
+      ? data.lists.find((l) => l.id === listEdit) || null
+      : null;
 
   return (
     <div className="lx">
@@ -6075,9 +6811,11 @@ export default function HeadsUp({ onSchedule }) {
               counts={counts}
               now={now}
               settings={data.settings}
+              swipe={swipe}
               onDone={markNudgeDone}
               onRestore={restoreNudge}
               onSnooze={snoozeNudge}
+              onQuick={setQuickId}
               onOpenSettings={() => setSettingsOpen(true)}
               onOpenEvent={openEvent}
               newCount={unreviewed.length}
@@ -6099,6 +6837,7 @@ export default function HeadsUp({ onSchedule }) {
                 sel={sel}
                 setSel={setSel}
                 onOpenTodo={setOpenTodo}
+                onEditList={() => setListEdit(list.id)}
                 onBack={() => {
                   setListId(null);
                   setOpenTodo(null);
@@ -6110,6 +6849,7 @@ export default function HeadsUp({ onSchedule }) {
               <ListsOverview
                 data={data}
                 now={now}
+                swipe={swipe}
                 onPick={(id) => {
                   setListId(id);
                   setSel([]);
@@ -6119,7 +6859,8 @@ export default function HeadsUp({ onSchedule }) {
                   setListId(lid);
                   setOpenTodo(itemId);
                 }}
-                onNewList={ops.addList}
+                onNewList={() => setListEdit("new")}
+                onEditList={(id) => setListEdit(id)}
               />
             ))}
 
@@ -6128,6 +6869,7 @@ export default function HeadsUp({ onSchedule }) {
               data={data}
               now={now}
               unreviewed={unreviewed}
+              swipe={swipe}
               seedView={calSeed}
               onSeedUsed={() => setCalSeed(null)}
               onOpenEvent={openEvent}
@@ -6219,6 +6961,51 @@ export default function HeadsUp({ onSchedule }) {
               <i />
             </div>
           </div>
+        )}
+
+        {quickNudge && (
+          <QuickActions
+            n={quickNudge}
+            now={now}
+            settings={data.settings}
+            onClose={() => setQuickId(null)}
+            onDone={() => {
+              setQuickId(null);
+              markNudgeDone(quickNudge);
+            }}
+            onSnooze={(at) => {
+              setQuickId(null);
+              snoozeNudge(quickNudge, at);
+            }}
+            onOpen={() => {
+              setQuickId(null);
+              if (quickNudge.kind === "todo") {
+                setTab("lists");
+                setListId(quickNudge.listId);
+                /* A subtask's nudge carries its parent item — that is the
+                   sheet the step lives in. */
+                setOpenTodo(quickNudge.itemId);
+              } else openEvent(quickNudge.eventId);
+            }}
+          />
+        )}
+
+        {listEdit && (listEdit === "new" || editedList) && (
+          <ListSheet
+            list={editedList}
+            onClose={() => setListEdit(null)}
+            onSave={(name, accent) => {
+              if (listEdit === "new") ops.addList(name, accent);
+              else {
+                ops.patchListMeta(editedList.id, {
+                  name,
+                  accent: accent || editedList.accent,
+                });
+                setListEdit(null);
+              }
+            }}
+            onDelete={() => ops.deleteList(editedList)}
+          />
         )}
 
         {todo && list && (

@@ -1,5 +1,79 @@
 # Changelog
 
+## 1.5.0 — 2026-08-08
+
+`src/HeadsUp.jsx`, 7097 lines
+
+Phone first, everywhere. Every verb the app has is now reachable by a gesture or
+a thumb-sized control, and a list can finally be named.
+
+### Added
+
+- **Lists are named by the person making them.** `+ New list` opens a sheet with
+  the name field focused, a colour, and a Create button; the same sheet renames
+  the list afterwards. It is reached by tapping the list's own name on its screen,
+  by the ⋯ beside it, or by holding a row in the overview. `List 4` as a name only
+  survives if you save the field empty.
+  - Deleting a list lives in that sheet too, behind the standard undo, and says
+    how many open items go with it.
+  - Renaming is a plain patch. Nothing keys off a list's name — the to-do nudges
+    carry `listName`, but they are derived on every render, so the origin line on
+    the home ledger follows a rename immediately.
+- **Swipe a reminder on Home: right marks it done, left snoozes it** by the
+  default snooze duration, with the same rubber-band, hint labels and haptics the
+  to-do rows have had since 1.1.0. A hint line under the first row explains both,
+  and retires itself the first time either is used (`settings.swipeSeen`).
+- **Long press a reminder for the quick-action menu.** Mark done, all three snooze
+  times, and Open the event or the to-do — pinned to the bottom of the screen
+  rather than floating in the middle of it. The two swipes are shortcuts into its
+  first two entries and are labelled as such.
+- **Sheets are dismissed by dragging them down.** The to-do, event, settings and
+  list sheets all grew a grabber; the drag is claimed only when it is clearly
+  downward, so a sideways or upward start still belongs to what is underneath.
+  Every Close button stays.
+- **The calendar steps a period per sideways swipe**, in every view except the
+  review queue. A swipe that crosses the hour slots does not also open the slot it
+  passed over — the click is swallowed in the capture phase.
+- **A list is left by swiping in from its left edge**, because `‹ All lists` sits
+  in the one corner of a phone a thumb cannot reach. The gesture refuses to start
+  on a row, which swipes for itself.
+
+### Changed
+
+- **Everything that takes a tap is at least 44 px tall** — chips, lead-time
+  buttons, keyword add and its input, the calendar's ‹ › and TODAY, the agenda's
+  ＋, close and cancel and edit, put-back, the bulk bar's minis and date presets,
+  segmented controls, selects and time fields. The switches went from 46×28 to
+  52×32 with a 44 px hit area that overhangs them.
+- **Every field the user types into is 16 px**, via `--field-type`. Below that,
+  iOS Safari zooms the page on focus and leaves it zoomed — the app was doing
+  this in the rule editor, the step rows, the to-do date and both selects.
+- **Save is a fixed foot, not the end of a scroll.** The event form's SAVE and
+  DELETE moved into the sheet's footer, and the read view grew an EDIT EVENT
+  button beside its top-right EDIT. Adding to a list is a sticky field at the top
+  of the scroll; `+ New list` is a sticky bar at the bottom of the overview.
+- **The calendar opens on 3 DAY** on a fresh install, rather than a seven-column
+  week that fits about eight characters of a title per day. Every view is still
+  one tap away, and a stored preference is never overridden.
+- Event blocks in the grid wrap to two lines before the ellipsis, and drop the
+  time line when the block is too short for both.
+- Press feedback is a real state now (`button:active`), hover effects are behind
+  `@media (hover:hover)`, and `prefers-reduced-motion` turns the animations off.
+- The phone frame pays for the landscape notch (`safe-area-inset-left/right`),
+  and a phone on its side gets the status bar's height back.
+
+### Verified
+
+- Walked the whole app at 393×851 in Chromium: swipe right on a queued row marks
+  it done and offers undo; swipe left snoozes it to the default; a long press
+  opens the quick menu, whose Cancel and scrim both close it; the to-do sheet is
+  dragged away by its grabber; the calendar steps 8–10 Aug → 11–13 Aug on a
+  sideways drag; the left-edge swipe leaves a list while a swipe that starts on a
+  row still marks the row done.
+- Created a list called "Garden jobs" from the sheet, renamed it to "Garden and
+  shed", added an item, then deleted the list and read the undo line back.
+- No page errors in any of it.
+
 ## 1.4.0 — 2026-08-08
 
 `src/HeadsUp.jsx`, 6310 lines

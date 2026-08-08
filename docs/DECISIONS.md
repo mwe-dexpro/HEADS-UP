@@ -493,3 +493,49 @@ of "today" rather than as a fake status bar, and the `useBattery` hook is gone.
 
 *Cost:* the status bar is a wordmark and nothing else, so it earns less of its
 height than it did. If it needs to go, the wordmark belongs in the header.
+
+---
+
+### 034 — Phone first: 44px, 16px, and the verbs in gestures
+**Accepted**, on the user's instruction to make the app mobile first. Two tokens
+carry it — `--tap` at 44px for anything tapped, `--field-type` at 16px for
+anything typed into — and every control was resized from them rather than from
+whatever its type happened to need. The 16px rule is not taste: below it, iOS
+Safari zooms the page on focus and does not zoom back.
+
+Above that, the primary verbs moved into gestures. A reminder is cleared by
+swiping right and snoozed by swiping left, exactly as a to-do already was; a long
+press opens the rest. Sheets are dragged away downward, the calendar is stepped
+sideways, and a list is left by swiping in from its left edge. Every one of them
+still has a button, because a gesture is an accelerator, not the only door.
+
+*Cost:* the surface is taller. Chips that used to sit three to a row now wrap to
+two rows, and the forms are longer, which is why the commit actions moved into
+fixed feet. A 440px desktop frame pays that cost without getting the benefit.
+
+*Reconsider if:* the app ever grows a genuine desktop layout. The right answer
+then is a second set of token values behind a `pointer:fine` query, not a retreat
+to 36px controls everywhere.
+
+---
+
+### 035 — A list is named by the person making it
+**Accepted**, reported by the user: list names could not be edited at all.
+`+ New list` silently created `List 4`, and nothing anywhere could rename it.
+
+One sheet now does both jobs — name, colour, and (when it already exists) delete
+— reached from `+ New list`, from the list's own name on its screen, from the ⋯
+beside it, or by holding a row in the overview. The counter name survives only if
+the field is saved empty.
+
+Renaming is a plain patch because nothing keys off a name: to-do nudges carry
+`listName`, but they are derived on every render, so the origin line on the home
+ledger follows a rename immediately. That is the same property invariant 3 buys
+everywhere else.
+
+*Cost:* creating a list is now two steps rather than one. That is the point — a
+list you had to name is a list you meant to make.
+
+*Reconsider if:* a fast path is wanted for throwaway lists. The fix is a Create
+button that accepts the empty field, which it already does, not a return to
+silent naming.

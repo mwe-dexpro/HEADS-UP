@@ -1,4 +1,4 @@
-# Heads Up — v1.4.0
+# Heads Up — v1.5.0
 
 Lead-time reminders for calendar events. One event produces a _ladder_ of nudges
 at several lead times, so a birthday next week tells you to buy a present ten
@@ -13,7 +13,11 @@ ink type, and one amber reserved exclusively for live. Reminders are ledger rows
 an amber rail and an amber origin band rather than with a fill. Labels are mono
 small-caps in fixed positions; every card scans in the same order.
 
-**Released:** 2026-08-08 · `src/HeadsUp.jsx` · 6310 lines · `main`
+It is built phone-first: every control is at least 44 px tall, every field is
+16 px so nothing zooms on focus, and the verbs live in gestures — swipe a
+reminder right to clear it, left to snooze it, hold it for everything else.
+
+**Released:** 2026-08-08 · `src/HeadsUp.jsx` · 7097 lines · `main`
 
 Version history is in `CHANGELOG.md`; each release is a commit on `main`.
 
@@ -27,6 +31,12 @@ Version history is in `CHANGELOG.md`; each release is a commit on `main`.
 | To-do lists, steps, dates optional              | Working                                   |
 | To-do reminders in the same stream              | Working                                   |
 | Swipe to clear or delete, long press to select  | Working                                   |
+| Swipe a reminder: right done, left snooze       | Working                                   |
+| Long press a reminder for the quick-action menu | Working                                   |
+| Sheets dismissed by dragging them down          | Working                                   |
+| Calendar stepped by swiping sideways            | Working                                   |
+| Swipe back from the left edge of a list         | Working                                   |
+| List names, editable at creation and after      | Working                                   |
 | Bulk done, re-date, move, delete                | Working                                   |
 | Calendar: agenda, month, week, work week, 3-day | Working                                   |
 | Event editing, alerts, categories               | Working                                   |

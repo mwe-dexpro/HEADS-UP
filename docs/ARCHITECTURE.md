@@ -64,6 +64,7 @@ Persisted shape, stored as JSON under a single key:
     undatedAt,                       // "top" | "bottom" inside a list
     confirmDelete,                   // off: undo is cheaper than a dialog
     sound, badge, haptics,           // only Silent, setAppBadge and vibrate bite
+    swipeSeen,                       // added in 1.5.0 — retires the gesture hint
   },
 }
 ```
@@ -293,6 +294,12 @@ release.
   silently do nothing. Custom colours live in CSS variables on `.lx`. An inline
   style is for values computed at render time only — a track position, a category
   colour, a swipe transform.
+- **Phone first, and the tokens say so.** `--tap` (44px) is the height of
+  anything that takes a tap, and `--field-type` (16px) the size of anything typed
+  into — below 16px iOS Safari zooms on focus and stays zoomed. Both are set once
+  on `.lx`; a control that hard-codes its own height or font size instead is the
+  bug, not the exception. Hover lives behind `@media (hover:hover)` and is never
+  the only way to find something; the press state is `button:active`.
 - **One amber.** `--amber` (`#e8813f`) and `--amber-ink` (`#b4470f`) mean live and
   nothing else. Anything that wants a second accent takes it from the muted inks:
   `--blue`, `--green`, or a list's own `accent`.
@@ -363,11 +370,12 @@ Four destinations in the tab bar; settings sit behind the header control.
 ```
 HeadsUp                 state owner, storage, notification loop, routing, undo
 ├─ Home                 counters · live · buckets · runway · handled
+│  ├─ LedgerSwipe       the gesture wrapper: right done, left snooze, hold menu
 │  ├─ LiveCard          the amber-railed ledger block; done and snooze
 │  ├─ QueuedCard        everything else; `live` prop gives it the amber rail
 │  └─ Runway            one event's whole ladder on a track (signature element)
-├─ ListsOverview        eight lists, search across all of them
-├─ ListDetail           with-a-date / no-date, swipe, long press
+├─ ListsOverview        eight lists, search across all of them; hold to rename
+├─ ListDetail           with-a-date / no-date, swipe, long press, edge-swipe back
 │  └─ TodoRow           one row; owns nothing, all state is lifted
 ├─ CalendarTab          five views + the opt-in NEW segment
 ├─ Rules                test box, warnings, collapsed summaries
@@ -378,35 +386,59 @@ HeadsUp                 state owner, storage, notification loop, routing, undo
 │  └─ (catch-all card)
 └─ overlays, siblings of the tab bar
    ├─ TodoSheet         date, reminders, steps, notes, move
-   ├─ EventSheet        read-only until EDIT
+   ├─ EventSheet        read-only until EDIT; commits from a fixed foot
+   ├─ ListSheet         name, colour, delete — creating and renaming, one sheet
+   ├─ QuickActions      what a long press on a ledger row opens
    ├─ BulkBar           done · date · move · delete
    ├─ Settings          everything adjustable, plus ImportPanel
    └─ undo / confirm
 ```
 
 Shared leaves and helpers: `Row`, `Toggle`, `Seg`, `SectionHead`, `Empty`,
-`TabIcon`, `StatusBar`, `useSwipe`, and the pure nudge-to-string mappings
-(`rungOf`, `dueLabelOf`, `rowsOf`, `marksOf`, `railOf`).
+`TabIcon`, `StatusBar`, `useSwipe`, `useSheetDrag`, `usePager`, and the pure
+nudge-to-string mappings (`rungOf`, `dueLabelOf`, `rowsOf`, `marksOf`,
+`railOf`).
 
 ### Where state lives
 
-`listId`, `openTodo`, `sel`, `bulkPanel`, `evOpen`, `evEdit` and `draft` are held
-by `HeadsUp`, not by the screens, because the sheets and the bulk bar render
+`listId`, `openTodo`, `sel`, `bulkPanel`, `evOpen`, `evEdit`, `draft`, `quickId`
+and `listEdit` are held by `HeadsUp`, not by the screens, because the sheets and the bulk bar render
 above the tab bar rather than inside the scroll area. Screens own only what
 nothing else can see: which card is expanded, a draft in a text field.
 
 ### Gestures
 
-`useSwipe` is one hook for the whole app. It claims the pointer only after the
-movement is unambiguously horizontal (7px, and more horizontal than vertical), so
-vertical scrolling is never stolen, and it rubber-bands past 150px. Two things
-matter for correctness:
+Three hooks, all built the same way: claim the pointer only once the direction
+is unambiguous, so scrolling is never stolen.
 
+`useSwipe` is the row gesture, one instance for the whole app, passed down as the
+`swipe` prop. It claims the pointer after 7px of movement that is more horizontal
+than vertical, and rubber-bands past 150px.
+
+- The two directions are `onRight`/`onLeft`; `onDone`/`onDelete` are the list's
+  names for the same pair. **A direction with no handler springs back** rather
+  than flying off, which is what lets a row offer one action and not the other.
+- `pressOnly: true` takes a row out of the drag machinery entirely and leaves only
+  the long press — the list rows in the overview use it to open the rename sheet.
 - A gesture that has just ended must not also register as a tap — `tapBlocked()`
   covers a 320 ms window after any release.
 - **Every clickable thing inside a swipe target must check `tapBlocked()` too.**
   The checkbox circle sits inside the row, so without it a long press that lands
-  on the circle deselects the item it just selected.
+  on the circle deselects the item it just selected. On Home the same applies to
+  the row's own expand toggle and to its Done and Snooze buttons.
+
+`useSheetDrag` dismisses a full-screen sheet by pulling it down past 96px. It is
+bound to the grabber and the sheet's head only, never the body, and it bails out
+if the press starts on a control there. The sheet's entry animation deliberately
+has **no fill mode**: a filled animation outranks the inline transform the drag
+writes, and the sheet would refuse to move.
+
+`usePager` steps the calendar a period per sideways swipe, and — with
+`{ edge, ignore }` — walks back out of a list from its left edge. Because most of
+a calendar is buttons, it cannot ask the gesture to avoid them; instead it
+swallows the following click in the capture phase (`onClickCapture`, same 320 ms
+window). `ignore` is a selector for anything that swipes for itself: a page and
+the rows inside it cannot both own a horizontal drag.
 
 ## Undo
 
