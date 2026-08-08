@@ -1,4 +1,4 @@
-# Heads Up — v1.3.0
+# Heads Up — v1.4.0
 
 Lead-time reminders for calendar events. One event produces a _ladder_ of nudges
 at several lead times, so a birthday next week tells you to buy a present ten
@@ -8,11 +8,12 @@ The reminder is the primary object, not the event. The main screen sorts by when
 a reminder is due, not by when the event happens.
 
 The surface follows the **Ladder** direction: clinical paper — warm off-white,
-ink type, and one amber reserved exclusively for live. Live is a filled dark
-card, not a tint, so it is categorically different at arm's length. Labels are
-mono small-caps in fixed positions; every card scans in the same order.
+ink type, and one amber reserved exclusively for live. Reminders are ledger rows
+— full-bleed, hairline-separated, no radius and no shadow — and live is said with
+an amber rail and an amber origin band rather than with a fill. Labels are mono
+small-caps in fixed positions; every card scans in the same order.
 
-**Released:** 2026-08-07 · `src/HeadsUp.jsx` · 6163 lines · `main`
+**Released:** 2026-08-08 · `src/HeadsUp.jsx` · 6310 lines · `main`
 
 Version history is in `CHANGELOG.md`; each release is a commit on `main`.
 

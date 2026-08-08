@@ -13,14 +13,15 @@ import React, {
 
    Presentation follows the "Ladder" direction: clinical paper —
    warm off-white ground, ink type, one amber reserved exclusively
-   for live. Live is a filled dark card, never a tint, so it reads
-   as categorically different at arm's length. Labels are mono
-   small-caps in fixed positions; every card scans in one order.
+   for live. Reminders are ledger rows — full-bleed, hairline-
+   separated — and live is said with an amber rail and band, never
+   with a fill. Labels are mono small-caps in fixed positions;
+   every card scans in one order.
    ============================================================ */
 
 const STORE_KEY = "headsup:v1";
 const HORIZON_DAYS = 400;
-const APP_VERSION = "1.3.1";
+const APP_VERSION = "1.4.0";
 /* How far ahead, and how many, the app hands to the host to schedule. Android's
    alarm scheduler and iOS both get unhappy past a few dozen pending
    notifications, and a reminder six weeks out will be republished long before
@@ -946,12 +947,29 @@ const BUCKETS = [
   ["week", "THIS WEEK"],
   ["later", "LATER"],
 ];
-function bucketOf(nudge, now) {
+/* The last moment of the calendar week `d` falls in, honouring the same
+   weekStart the calendar uses — so "this week" means one thing in the app. */
+function endOfWeek(d, weekStart) {
+  const dow =
+    weekStart === "sun" ? new Date(d).getDay() : (new Date(d).getDay() + 6) % 7;
+  const end = addDays(d, 6 - dow);
+  end.setHours(23, 59, 59, 999);
+  return end;
+}
+/* THIS WEEK is the calendar week, not the next seven days. On a Saturday,
+   something due the following Wednesday is not "this week" however few days
+   away it is — it is LATER, and saying otherwise is the kind of small lie that
+   makes a queue untrustworthy.
+
+   A consequence worth knowing: late in the week THIS WEEK empties out and LATER
+   grows. That is the honest shape of a calendar week, and the four buckets the
+   design specifies have no NEXT WEEK to put it in. */
+function bucketOf(nudge, now, weekStart) {
   const due = new Date(nudge.dueAt);
   if (due <= now) return "now";
   if (sameDay(due, now)) return "today";
   if (sameDay(due, addDays(now, 1))) return "tomorrow";
-  if (due < addDays(now, 8)) return "week";
+  if (due <= endOfWeek(now, weekStart)) return "week";
   return "later";
 }
 
@@ -1070,6 +1088,8 @@ const CSS = `
   --field:#ddd8cc; --field-2:#d9d3c6; --field-3:#cfc9bb; --dash:#d8d3c7;
   --blue:#3f5a7a; --blue-bg:#eef2f7; --blue-line:#dde5ef; --blue-mute:#93a4b8;
   --green:#5f7f5c;
+  /* The rail colour again at chip strength, behind the origin label. */
+  --tint-live:#f6d9c2; --tint-todo:#d5dee8; --tint-event:#e6e2d8;
   --warn:#9a6410; --warn-bg:#fdf6ea; --warn-line:#e6d3b8; --warn-ink:#4a3812;
   --warn-text:#6b5326; --warn-dot:#c98a26; --warn-chip:#fdf1dd;
   --danger:#b4470f; --danger-bg:#fdf4f0; --danger-line:#e8cfc2;
@@ -1230,6 +1250,72 @@ const CSS = `
 .lx-btn-quiet{flex:1;height:44px;border:1px solid var(--field-2);border-radius:9px;
   background:var(--panel);color:var(--ink);font:500 14px var(--body);cursor:pointer}
 .lx-btn-quiet.narrow{flex:none;width:104px}
+
+/* ---------- Home: the ledger ----------
+   Full-bleed rows, not cards. The rail runs the whole height of a row and says
+   where the reminder came from; the only boundary is a hairline. Live earns a
+   filled amber band across the full width — with no card edge to fill, the band
+   is the strongest state change available, and it carries the origin at the same
+   time.
+
+   Deliberately no caret and no mark chips, unlike the card treatment: the origin
+   is now permanent rather than hidden behind a tap, and a ledger that grows
+   badges stops being a ledger. Recurrence moved into the WHEN value, where it
+   reads as part of the sentence. */
+.lx-led{margin:0 -16px 22px;padding:0 16px 15px;background:var(--paper);
+  border-bottom:1px solid var(--line);border-left:7px solid var(--line);
+  cursor:pointer;text-align:left;width:100%;display:block}
+.lx-led-head{margin:0 -16px 11px;padding:6px 16px 5px;display:flex;
+  align-items:center;justify-content:space-between;gap:10px}
+.lx-led-head .from{font:600 9.5px var(--mono);letter-spacing:.14em;color:var(--ink);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lx-led-head .now{font:600 9.5px var(--mono);letter-spacing:.1em;
+  color:rgba(23,22,15,.62);flex:none}
+.lx-led-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-bottom:8px}
+.lx-led-meta .t{font:600 9.5px var(--mono);letter-spacing:.12em;color:var(--ink)}
+.lx-led-meta .due{font:500 9.5px var(--mono);letter-spacing:.08em;color:var(--mute-2);
+  flex:none}
+.lx-led h3{margin:0 0 12px;font:700 25px/1.08 var(--body);color:var(--ink);
+  letter-spacing:-.022em;text-wrap:pretty}
+.lx-led-rows{display:flex;flex-direction:column}
+.lx-led-row{display:grid;grid-template-columns:66px 1fr;gap:10px;align-items:baseline;
+  padding:7px 0;border-top:1px solid var(--line)}
+.lx-led-row .k{font:500 9.5px var(--mono);letter-spacing:.1em;color:var(--mute-3)}
+.lx-led-row .v{font:400 13.5px/1.35 var(--body);color:var(--ink);text-wrap:pretty}
+.lx-led-act{display:flex;gap:8px;margin-top:13px}
+/* Square corners: a ledger has rules, not rounded cards. */
+.lx-btn-ink{flex:1;height:48px;border:0;background:var(--ink);color:var(--on-ink);
+  font:600 14.5px var(--body);cursor:pointer}
+.lx-btn-line{flex:none;width:104px;height:48px;border:1px solid var(--field-3);
+  background:transparent;color:#4a463b;font:500 14px var(--body);cursor:pointer}
+.lx-led-snooze{display:flex;flex-direction:column;margin-top:4px}
+.lx-led-snooze button{border:0;border-top:1px solid var(--line);background:transparent;
+  color:var(--ink);text-align:left;padding:0;height:46px;font:400 14px var(--body);
+  cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.lx-led-snooze .at{font:500 10px var(--mono);color:var(--mute-3);letter-spacing:.06em}
+
+/* A queued row: no band, an origin chip instead, and quieter throughout. */
+.lx-led.q{margin:0 -16px;padding:13px 16px 14px}
+.lx-led-tags{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-bottom:7px}
+.lx-led-tags .left{display:flex;align-items:baseline;gap:7px;min-width:0}
+.lx-led-tags .origin{font:600 9px var(--mono);letter-spacing:.1em;color:var(--ink);
+  padding:2px 5px 1px;flex:none}
+.lx-led-tags .rung{font:500 9.5px var(--mono);letter-spacing:.1em;color:var(--mute-2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lx-led-tags .due{font:500 9.5px var(--mono);letter-spacing:.08em;color:var(--mute-3);
+  flex:none}
+.lx-led.q h3{margin:0 0 10px;font:600 19.5px/1.15 var(--body);letter-spacing:-.016em}
+.lx-led.q .lx-led-row{padding:5px 0;border-top:1px solid var(--line-4)}
+.lx-led.q .lx-led-row .k{color:var(--mute-4)}
+.lx-led.q .lx-led-row .v{color:var(--ink-2)}
+.lx-btn-led{width:100%;height:44px;margin-top:10px;border:1px solid var(--field-2);
+  background:transparent;color:var(--ink);font:500 14px var(--body);cursor:pointer}
+/* Rows butt against each other; the hairline is the separator, not a gap. */
+.lx-led-list{display:flex;flex-direction:column}
+.lx-sec.led{margin-bottom:18px}
+.lx-sec.led .lx-sec-head{margin-bottom:2px}
 
 /* ---------- empty states ---------- */
 .lx-empty{border:1px dashed var(--dash);border-radius:14px;padding:26px 18px;
@@ -1757,42 +1843,16 @@ function useNow(intervalMs = 30000) {
   return now;
 }
 
-/* The status strip is part of the design's identity, so it stays — but it only
-   ever shows things that are true. Battery appears when the platform offers it
-   and is simply absent when it does not. */
-function useBattery() {
-  const [pct, setPct] = useState(null);
-  useEffect(() => {
-    let alive = true;
-    let bat = null;
-    const read = () => alive && bat && setPct(Math.round(bat.level * 100));
-    try {
-      if (navigator.getBattery) {
-        navigator.getBattery().then((b) => {
-          if (!alive) return;
-          bat = b;
-          read();
-          b.addEventListener("levelchange", read);
-        });
-      }
-    } catch (e) {
-      /* not available in this context */
-    }
-    return () => {
-      alive = false;
-      if (bat) bat.removeEventListener("levelchange", read);
-    };
-  }, []);
-  return pct;
-}
-
-function StatusBar({ now }) {
-  const pct = useBattery();
+/* The strip is the app's nameplate and nothing else. The clock sits with the
+   date in the page header, where a date and a time belong together, and the
+   battery is the operating system's job — its own status bar is directly above
+   this one. */
+function StatusBar() {
   return (
     <div className="lx-status">
-      <span>{fmtTime(now)}</span>
+      <span />
       <span className="mark">LADDER</span>
-      <span className="end">{pct == null ? "" : `${pct}%`}</span>
+      <span />
     </div>
   );
 }
@@ -2111,13 +2171,16 @@ function tminusOf(n) {
   if (n.alertMinutes != null) return alertChip(n.alertMinutes);
   return n.lead == null ? "T−0" : tminus(n.lead);
 }
-function dueLabelOf(n, now) {
+/* Takes the same weekStart as the buckets, so the label and the section it sits
+   in can never disagree: a bare weekday is only unambiguous inside this calendar
+   week. "DUE WED" under LATER would be a riddle. */
+function dueLabelOf(n, now, weekStart) {
   const d = new Date(n.dueAt);
   const t = fmtTime(d);
   if (d <= now) return `DUE ${t}`;
   if (sameDay(d, now)) return `DUE ${t}`;
   if (sameDay(d, addDays(now, 1))) return `DUE TOMORROW ${t}`;
-  if (d < addDays(now, 8))
+  if (d <= endOfWeek(now, weekStart))
     return `DUE ${d.toLocaleDateString(undefined, { weekday: "short" }).toUpperCase()} ${t}`;
   return `DUE ${capDate(d)} ${t}`;
 }
@@ -2128,7 +2191,11 @@ function whenLine(n, now) {
     : `${fmtDate(start)} · ${fmtTime(start)}${
         n.eventEnd ? `–${fmtTime(n.eventEnd)}` : ""
       }`;
-  return `${base} · ${relative(start, now)}`;
+  /* Recurrence belongs in the sentence, not in a badge. The ledger has no badge
+     row, and "Sat 15 Aug · all day · yearly · in 10 days" reads correctly. */
+  const rep =
+    n.event && n.event.recurring ? ` · ${n.event.repeats || "repeats"}` : "";
+  return `${base}${rep} · ${relative(start, now)}`;
 }
 /* The badge cluster flags only what the card is *not* already showing. */
 function marksOf(n) {
@@ -2148,6 +2215,12 @@ function railOf(n, live) {
   if (live) return "var(--amber)";
   if (n.kind === "todo") return n.accent || ACCENTS[0];
   return "#c9c3b5";
+}
+/* The same three states as the rail, at chip strength. */
+function tintOf(n, live) {
+  if (live) return "var(--tint-live)";
+  if (n.kind === "todo") return "var(--tint-todo)";
+  return "var(--tint-event)";
 }
 function rowsOf(n, now) {
   if (n.kind === "todo") {
@@ -2172,11 +2245,20 @@ function originOf(n) {
   return n.kind === "todo" ? "SOURCE" : "FROM RULE";
 }
 function originValue(n) {
+  /* The LIST row already names the list, and the band is a one-line header —
+     "SOURCE · Set on the item · House related" says it twice and wraps. */
   return n.kind === "todo"
     ? n.parentTitle
       ? "Set on the step"
-      : `Set on the item · ${n.listName}`
+      : "Set on the item"
     : n.ruleName;
+}
+/* T−1 DAY · 1 DAY is the same fact twice: for an alert, tminus and the rung are
+   the same string by construction. */
+function rungLine(n) {
+  const t = tminusOf(n);
+  const r = rungOf(n);
+  return t === r ? r : `${t} · ${r}`;
 }
 function notesOf(n) {
   if (n.kind === "todo") return n.notes || "—";
@@ -2210,11 +2292,14 @@ function snoozeAtLabel(at, now) {
   return `${at.toLocaleDateString(undefined, { weekday: "short" }).toUpperCase()} ${fmtTime(at)}`;
 }
 
-/* The live card. Filled dark, amber rail, one primary action. */
+/* The live row. A filled amber band across the full width, carrying the origin;
+   the rail beneath it in the same amber. With no card edge to fill, the band is
+   the strongest state change the ledger has. */
 function LiveCard({
   n,
   now,
   settings,
+  weekStart,
   open,
   snoozing,
   onToggle,
@@ -2222,10 +2307,10 @@ function LiveCard({
   onDone,
   onSnooze,
 }) {
-  const marks = marksOf(n);
   return (
     <article
-      className="lx-live"
+      className="lx-led"
+      style={{ borderLeftColor: "var(--amber)" }}
       onClick={onToggle}
       role="button"
       tabIndex={0}
@@ -2236,38 +2321,34 @@ function LiveCard({
         }
       }}
     >
-      <div className="lx-live-top">
-        <span className="lx-due">DUE NOW</span>
-        <span className="lx-rung">
-          <span>{rungOf(n)}</span>
-          <em>{open ? "⌃" : "⌄"}</em>
-        </span>
+      <div className="lx-led-head" style={{ background: "var(--amber)" }}>
+        <span className="from">{`${originOf(n)} · ${originValue(n)}`}</span>
+        <span className="now">NOW</span>
+      </div>
+      <div className="lx-led-meta">
+        <span className="t">{tminusOf(n)}</span>
+        <span className="due">{dueLabelOf(n, now, weekStart)}</span>
       </div>
       <h3>{n.label}</h3>
-      <div className="lx-kv">
+      <div className="lx-led-rows">
         {rowsOf(n, now).map(([k, v]) => (
-          <Row key={k} k={k}>
-            {v}
-          </Row>
+          <div className="lx-led-row" key={k}>
+            <span className="k">{k}</span>
+            <span className="v">{v}</span>
+          </div>
         ))}
+        {/* The band above already names the origin, so expanding only adds the
+            notes. The card treatment repeated it because it had nowhere else to
+            put it. */}
+        {open && (
+          <div className="lx-led-row">
+            <span className="k">NOTES</span>
+            <span className="v">{notesOf(n)}</span>
+          </div>
+        )}
       </div>
-      {marks.length > 0 && (
-        <div className="lx-marks">
-          {marks.map((m) => (
-            <span key={m} className="lx-mark">
-              {m}
-            </span>
-          ))}
-        </div>
-      )}
-      {open && (
-        <div className="lx-live-open">
-          <Row k={originOf(n)}>{originValue(n)}</Row>
-          <Row k="NOTES">{notesOf(n)}</Row>
-        </div>
-      )}
       {snoozing && (
-        <div className="lx-snoozelist">
+        <div className="lx-led-snooze">
           {snoozeOptions(now, settings).map((o) => (
             <button
               key={o.label}
@@ -2282,9 +2363,9 @@ function LiveCard({
           ))}
         </div>
       )}
-      <div className="lx-live-act">
+      <div className="lx-led-act">
         <button
-          className="lx-btn-amber"
+          className="lx-btn-ink"
           onClick={(e) => {
             e.stopPropagation();
             onDone();
@@ -2293,7 +2374,7 @@ function LiveCard({
           Done
         </button>
         <button
-          className="lx-btn-dark"
+          className="lx-btn-line"
           onClick={(e) => {
             e.stopPropagation();
             onSnoozeOpen();
@@ -2306,14 +2387,12 @@ function LiveCard({
   );
 }
 
-/* Everything that is not the one card in front of you: white card, rail says
-   where it came from. A live item shown here keeps the amber rail and says DUE
-   NOW in amber ink — treatment B in the design's live-card study. */
-function QueuedCard({ n, now, open, live, onToggle, onDone }) {
-  const marks = marksOf(n);
+/* Everything not in front of you: the same row, quieter, with the origin as a
+   tinted chip instead of a band. A live item shown here keeps the amber. */
+function QueuedCard({ n, now, weekStart, open, live, onToggle, onDone }) {
   return (
-    <article
-      className="lx-card"
+    <div
+      className="lx-led q"
       style={{ borderLeftColor: railOf(n, live) }}
       onClick={onToggle}
       role="button"
@@ -2325,52 +2404,51 @@ function QueuedCard({ n, now, open, live, onToggle, onDone }) {
         }
       }}
     >
-      <div className="lx-card-top">
-        {live ? (
-          <span className="lx-card-live">{`DUE NOW · ${rungOf(n)}`}</span>
-        ) : (
-          <span className="lx-card-k">{rungOf(n)}</span>
-        )}
-        <span className="lx-card-due">
-          {!live && <span>{dueLabelOf(n, now)}</span>}
-          <em>{open ? "⌃" : "⌄"}</em>
+      <div className="lx-led-tags">
+        <span className="left">
+          <span className="origin" style={{ background: tintOf(n, live) }}>
+            {originOf(n)}
+          </span>
+          <span className="rung">{rungLine(n)}</span>
+        </span>
+        <span
+          className="due"
+          style={live ? { color: "var(--amber-ink)" } : undefined}
+        >
+          {live ? "DUE NOW" : dueLabelOf(n, now, weekStart)}
         </span>
       </div>
       <h3>{n.label}</h3>
-      <div className="lx-kv paper">
+      <div className="lx-led-rows">
         {rowsOf(n, now).map(([k, v]) => (
-          <Row key={k} k={k}>
-            {v}
-          </Row>
+          <div className="lx-led-row" key={k}>
+            <span className="k">{k}</span>
+            <span className="v">{v}</span>
+          </div>
         ))}
+        {open && (
+          <>
+            <div className="lx-led-row">
+              <span className="k">{originOf(n)}</span>
+              <span className="v">{originValue(n)}</span>
+            </div>
+            <div className="lx-led-row">
+              <span className="k">NOTES</span>
+              <span className="v">{notesOf(n)}</span>
+            </div>
+          </>
+        )}
       </div>
-      {marks.length > 0 && (
-        <div className="lx-marks paper">
-          {marks.map((m) => (
-            <span key={m} className="lx-mark">
-              {m}
-            </span>
-          ))}
-        </div>
-      )}
-      {open && (
-        <div className="lx-card-open">
-          <Row k={originOf(n)}>{originValue(n)}</Row>
-          <Row k="NOTES">{notesOf(n)}</Row>
-        </div>
-      )}
-      <div className="lx-card-act">
-        <button
-          className="lx-btn-quiet"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDone();
-          }}
-        >
-          Done
-        </button>
-      </div>
-    </article>
+      <button
+        className="lx-btn-led"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDone();
+        }}
+      >
+        Done
+      </button>
+    </div>
   );
 }
 
@@ -2498,14 +2576,17 @@ function Home({
           <div className="lx-h1">
             {now.toLocaleDateString(undefined, { weekday: "long" })}
           </div>
+          {/* Date and time on one mono line, comma stripped like every other
+              small-caps label in the app. */}
           <div className="lx-h1-sub">
-            {now
+            {`${now
               .toLocaleDateString(undefined, {
                 day: "numeric",
                 month: "short",
                 year: "numeric",
               })
-              .toUpperCase()}
+              .replace(/,/g, "")
+              .toUpperCase()} · ${fmtTime(now)}`}
           </div>
         </div>
         <button
@@ -2543,14 +2624,15 @@ function Home({
         </button>
       )}
 
-      {/* One filled card at a time. The fill is what makes live categorically
-          different, and nine of them would spend that difference. Anything else
-          already due sits directly under it, amber-railed, nothing hidden. */}
+      {/* One expanded block at a time: the first live reminder gets the amber
+          band and the full body. Anything else already due sits directly under
+          it as an amber-railed row — nothing hidden, nothing collapsed. */}
       {live[0] && (
         <LiveCard
           n={live[0]}
           now={now}
           settings={settings}
+          weekStart={settings.weekStart}
           open={open === live[0].id}
           snoozing={snoozeFor === live[0].id}
           onToggle={() => {
@@ -2574,14 +2656,15 @@ function Home({
       )}
 
       {live.length > 1 && (
-        <div className="lx-sec">
+        <div className="lx-sec led">
           <SectionHead label="ALSO DUE NOW" count={String(live.length - 1)} />
-          <div className="lx-stack">
+          <div className="lx-led-list">
             {live.slice(1).map((n) => (
               <QueuedCard
                 key={n.id}
                 n={n}
                 now={now}
+                weekStart={settings.weekStart}
                 live
                 open={open === n.id}
                 onToggle={() => setOpen(open === n.id ? null : n.id)}
@@ -2607,14 +2690,15 @@ function Home({
       )}
 
       {buckets.map((b) => (
-        <div className="lx-sec" key={b.key}>
+        <div className="lx-sec led" key={b.key}>
           <SectionHead label={b.label} count={String(b.items.length)} />
-          <div className="lx-stack">
+          <div className="lx-led-list">
             {b.items.map((n) => (
               <QueuedCard
                 key={n.id}
                 n={n}
                 now={now}
+                weekStart={settings.weekStart}
                 open={open === n.id}
                 onToggle={() => setOpen(open === n.id ? null : n.id)}
                 onDone={() => {
@@ -5388,7 +5472,10 @@ export default function HeadsUp({ onSchedule }) {
       };
     const active = nudges
       .filter((n) => !n.done)
-      .map((n) => ({ ...n, bucket: bucketOf(n, now) }));
+      .map((n) => ({
+        ...n,
+        bucket: bucketOf(n, now, data.settings.weekStart),
+      }));
     /* Two overdue rungs of one ladder are one thing to do, not two. Marking
        either done clears both, so the live band shows the earliest only. */
     const seen = new Set();
@@ -5417,6 +5504,9 @@ export default function HeadsUp({ onSchedule }) {
         now: liveList.length,
         today: active.filter((n) => n.bucket === "now" || n.bucket === "today")
           .length,
+        /* Counts what the page below actually shows: everything that is not
+           filed under LATER. On a Sunday that is today plus tomorrow, because
+           tomorrow always gets its own section. */
         week: active.filter((n) => n.bucket !== "later").length,
       },
       runway: buildRunway(nudges, data.events, now),
@@ -5967,7 +6057,7 @@ export default function HeadsUp({ onSchedule }) {
     <div className="lx">
       <style>{CSS}</style>
       <div className="lx-phone">
-        <StatusBar now={now} />
+        <StatusBar />
 
         <div className="lx-scroll">
           {warn && (

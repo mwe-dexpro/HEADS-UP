@@ -1,5 +1,62 @@
 # Changelog
 
+## 1.4.0 — 2026-08-08
+
+`src/HeadsUp.jsx`, 6310 lines
+
+The card treatment the design's own study defaulted to, a week that means the
+calendar week, and a header that stops imitating a phone.
+
+### Changed
+
+- **Reminders are ledger rows, not cards.** Treatment C from the handoff bundle's
+  live-card study, chosen from a screenshot of the prototype. Every reminder is a
+  full-bleed block — no radius, no shadow, no inset edge — separated by hairlines,
+  with a 7 px left rail and a body of mono label / value rows.
+  - Live keeps the amber, but spends it differently: a 7 px amber rail and an
+    amber origin band across the full width, rather than a filled dark card.
+    Nine reminders due at once no longer means one poster followed by a list.
+  - Queued rows get an ink rail and a tinted origin chip — `--tint-live`,
+    `--tint-todo`, `--tint-event` — so the source of a reminder is legible before
+    you read it.
+  - Done is a full-width ink bar, snooze a bordered box beside it; nothing is a
+    pill and nothing has a caret. Tapping the row still opens it, and open adds
+    only what the closed row does not already say.
+  - The mark chips are gone from the queue: recurrence now rides in the WHEN
+    value, and an ad-hoc origin says so in the origin chip.
+- **"This week" is the calendar week, ending on the day before your week start.**
+  It was a rolling eight-day window, so on a Saturday two reminders from the
+  _following_ week were filed under THIS WEEK — reported, and reproduced.
+  `bucketOf` and `dueLabelOf` now both end at `endOfWeek(now, settings.weekStart)`,
+  the same setting the calendar grid uses.
+  - Both take `weekStart` for the same reason: the second half of this bug was a
+    reminder filed under LATER whose own label read a bare `DUE FRI`.
+  - Intended consequence: late in the week THIS WEEK empties out. On a Saturday
+    the section disappears — Sunday is "tomorrow", the rest is LATER. The runway
+    below is what carries the next fortnight.
+- **The clock moved into the header, next to the date**, reading
+  `AUG 8 2026 · 01:37 PM` on the sub-line, where it belongs to "today" rather
+  than to a fake status bar.
+
+### Removed
+
+- **The battery percentage**, and the `useBattery` hook behind it. The status bar
+  was imitating phone chrome two pixels below the real one; in a browser tab it
+  was simply wrong. The status bar is now the wordmark alone.
+
+### Verified
+
+- The ledger renders every value the design specifies: 7 px amber rail, square
+  corners, amber band, 25 px / 700 title on the live block, 19.5 px / 600 on the
+  queue, `#f6d9c2` origin chip, full-bleed to the pane edge, no carets, no chips.
+- Walked a pinned clock from Monday 3 August to Sunday 9 August 2026 and read the
+  buckets and every due label on each day: no reminder from a later week appears
+  under THIS WEEK, no bare weekday appears under LATER, and on the Saturday THIS
+  WEEK is absent as designed.
+- The scroll shell, gestures, undo, offline boot, the published schedule and the
+  worker catch-up were all re-checked against this build; marking the live row
+  done still shrinks the schedule (49 → 46 items).
+
 ## 1.3.1 — 2026-08-07
 
 ### Fixed

@@ -185,6 +185,9 @@ the eye. One colour that only ever means one thing is legible across the room.
 ---
 
 ### 016 — Live is a filled card; only one at a time is filled
+**Superseded by 031** — the fill is gone; the "only one is expanded, the rest are
+amber-railed rows below it" half of this record still holds. Kept for the argument.
+
 **Accepted.** The design gives live reminders a filled dark card, and the study
 in the handoff bundle argues it against two cheaper treatments: a rail (too
 close to "slightly different") and a full-bleed ledger row (loses the card
@@ -434,3 +437,59 @@ is the same thing as an action that did not happen.
 *Also:* the label now says what it does. "Erase everything" that keeps your rules
 and settings was overclaiming in one direction while underdelivering in the other.
 
+
+---
+
+### 031 — The card is a ledger row, not a card
+**Accepted**, chosen by the user from the design's own live-card study (treatment
+C, which the prototype's props defaulted to). Reminders are full-bleed blocks
+separated by hairlines: no radius, no shadow, no dark fill. Live is said with a
+7 px amber rail and an amber origin band; queued rows use an ink rail and a tinted
+origin chip.
+
+*What it fixes:* the filled dark card only works when there is exactly one of it.
+With nine reminders due at once — an ordinary Monday — the first was a poster and
+the eight below it were a list, and the eye had to switch modes halfway down the
+screen. A ledger reads the same at one item or twenty.
+
+*Cost:* less hierarchy. The live reminder is now distinguished by hue and by
+position, not by mass, so anything that dilutes the amber (a second accent, a
+tinted live rail) breaks the only signal left. `--amber` remains reserved.
+
+*Rule to keep:* full-bleed means `margin:0 -16px` against the scroll pane's own
+16 px padding. A card that grows its own horizontal padding instead will look
+right and be misaligned with every other row.
+
+---
+
+### 032 — "This week" means the calendar week
+**Accepted**, reported by the user: two reminders that fell on the following week
+were listed under THIS WEEK. The bucketer used a rolling eight-day window, so on
+a Saturday "this week" reached into Sunday-plus-seven.
+
+Both `bucketOf` and `dueLabelOf` now take `weekStart` and end the week at
+`endOfWeek(now, weekStart)`, the same setting the calendar grid uses. Passing it
+to both is the point: the second half of the bug was a nudge filed under LATER
+whose own label read `DUE FRI`, which is worse than either error alone.
+
+*Cost, deliberately accepted:* THIS WEEK empties out towards the weekend. On a
+Saturday the section disappears — Sunday is "tomorrow", the rest is LATER. A
+section that vanishes looks like a bug and is the correct answer; the runway below
+it is what covers the next fortnight.
+
+*Reconsider if:* users read THIS WEEK as "the next seven days". The fix then is a
+differently-named bucket, not a window that quietly disagrees with the calendar.
+
+---
+
+### 033 — The clock lives in the header, and the battery does not exist
+**Accepted**, on the user's instruction. The design's status bar imitated a phone
+chrome: time top-left, a battery percentage top-right. Both were furniture — the
+OS already draws a clock and a battery two pixels above ours, and in a browser tab
+the imitation is simply wrong.
+
+The time now sits next to the date on the header's sub-line, where it reads as part
+of "today" rather than as a fake status bar, and the `useBattery` hook is gone.
+
+*Cost:* the status bar is a wordmark and nothing else, so it earns less of its
+height than it did. If it needs to go, the wordmark belongs in the header.

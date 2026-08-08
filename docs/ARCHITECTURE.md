@@ -296,9 +296,15 @@ release.
 - **One amber.** `--amber` (`#e8813f`) and `--amber-ink` (`#b4470f`) mean live and
   nothing else. Anything that wants a second accent takes it from the muted inks:
   `--blue`, `--green`, or a list's own `accent`.
-- **Live is filled, never tinted.** The one card in front of you is the dark card.
-  Other items already due keep the amber rail and say so in amber ink — treatment
-  B in the design's live-card study — so the fill stays worth something.
+- **Cards are ledger rows, not objects on a page.** Treatment C in the design's
+  live-card study: no radius, no shadow, no inset card — a full-bleed block
+  (`margin:0 -16px`) with a hairline top border, a 7 px left rail, and a body of
+  label/value rows. The paper is the card. See `.lx-led` and `.lx-led.q` in `CSS`.
+- **The rail and the band carry live, not a fill.** The one reminder in front of
+  you gets an amber left rail and an amber origin band across the top; queued
+  rows get an ink rail and a tinted origin chip (`--tint-live`, `--tint-todo`,
+  `--tint-event`). Nothing is ever a dark filled card — the earlier treatment
+  turned every "also due now" item into a second poster competing with the first.
 - Every card body uses the same `.lx-kv` label/value grid. New card types should
   reuse `<Row k="…">` rather than inventing a layout.
 - The mark cluster under a card body flags only information *not* visible on it:
@@ -310,6 +316,20 @@ release.
   siblings of the tab bar inside `.lx-phone`, not children of the scroll area.
   `.lx-bulk` and `.lx-undo` are positioned from `--nav-h` so they float *above*
   the tab bar; `.lx-sheet` covers it, and carries a `z-index` to say so.
+
+### "This week" is the calendar week
+
+`bucketOf(nudge, now, weekStart)` and `dueLabelOf(nudge, now, weekStart)` both end
+the week at `endOfWeek(now, weekStart)` — the last millisecond of the calendar week
+`now` falls in, honouring the same `settings.weekStart` the calendar grid uses.
+Both take `weekStart` as an argument for exactly one reason: a bucket and the
+label inside it must never disagree. When these were a rolling eight-day window,
+Sunday's reminders showed up under THIS WEEK on a Saturday, and a nudge could be
+filed under LATER while its own label read a bare `DUE FRI`.
+
+The consequence is intended and worth stating: **late in the week, THIS WEEK is
+empty.** On a Saturday, Sunday is "tomorrow" and everything after it is LATER.
+Any new time bucket must be derived from this function, not from `addDays`.
 
 ### The shell owns the viewport
 
@@ -343,7 +363,7 @@ Four destinations in the tab bar; settings sit behind the header control.
 ```
 HeadsUp                 state owner, storage, notification loop, routing, undo
 ├─ Home                 counters · live · buckets · runway · handled
-│  ├─ LiveCard          the one filled dark card; done and snooze
+│  ├─ LiveCard          the amber-railed ledger block; done and snooze
 │  ├─ QueuedCard        everything else; `live` prop gives it the amber rail
 │  └─ Runway            one event's whole ladder on a track (signature element)
 ├─ ListsOverview        eight lists, search across all of them
