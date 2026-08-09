@@ -539,3 +539,67 @@ list you had to name is a list you meant to make.
 *Reconsider if:* a fast path is wanted for throwaway lists. The fix is a Create
 button that accepts the empty field, which it already does, not a return to
 silent naming.
+
+---
+
+### 036 — Back navigation is derived from state, through session history
+**Accepted**, reported by the user: there was no back navigation. Every overlay
+had a Close button, a drag and — in the list detail — an edge swipe, but the
+*system* back was unhandled. In a browser it left the app; on Android it was
+worse, because Capacitor's bridge has no back handling at all and the press
+finished the Activity outright, quitting over an open sheet.
+
+Two shapes were available. A router, which would have made the URL the source of
+truth for which surface is showing; or a projection, which keeps the plain state
+(`tab`, `listId`, `openTodo`, `evOpen`, …) authoritative and mirrors its depth
+into session history, one entry per open layer. The projection was chosen. The
+app already resolves everything it shows from that state on every render, and a
+router would have created a second copy of it to keep in step — the exact class
+of bug invariant 3 exists to avoid.
+
+History rather than a private stack, because history is what the browser's own
+back button drives, and because the Capacitor WebView counts those entries as
+`canGoBack` — so the hardware button can be forwarded to `history.back()` by
+`web/native.js` without the app file knowing Android exists.
+
+*Cost:* a layer that is on screen but not on the stack has a back press that does
+nothing, and a layer on the stack but not on screen eats one. Each condition in
+the stack therefore has to mirror the render guard beside it, by hand, and adding
+an overlay means adding both. The URL also stays put, so a surface still cannot
+be linked to or reloaded into.
+
+*Reconsider if:* the app is ever wanted at a URL — shared links, deep links from
+a notification tap, restoring the open sheet after a reload. The answer then is a
+real router whose state the app reads, not a second stack alongside this one.
+
+---
+
+### 037 — One file per surface, not one file for everything
+**Accepted**, asked for by the user. `src/HeadsUp.jsx` had reached 7,220 lines.
+It is now 25 files: the shell, `lib/` for the engine and the pure helpers, `ui/`
+for the CSS, the gestures and the shared atoms, and one file each under
+`surfaces/` and `sheets/`.
+
+The split is along the seam the app already had. Section banners marked the same
+boundaries — Home, Rules, Lists, Calendar, Settings — and the render already
+divided the screen into a surface inside `.lx-scroll` and sheets above it. The
+files follow that division rather than inventing one: a surface never imports a
+sheet, and the shell stays the only thing that knows what is open, which is what
+the back stack from decision 036 depends on.
+
+Nothing was rewritten. Every declaration moved verbatim, in its original order,
+with imports derived from the identifiers it actually reads. The check was a
+rendered-DOM comparison: nineteen states — every tab, every calendar view, the
+settings sheet, a list detail, a to-do sheet, the rule test box — captured with
+`Date` and `Math.random` frozen, before and after. Byte-identical.
+
+*Cost:* the app is no longer one file you can paste into a runtime that takes
+one file. That property is what the artifact runtime wanted and it is gone; what
+survives is the *contract* — React 18, `window.storage`, relative imports only,
+no bundler-specific syntax — which any bundler or an import-map host still
+satisfies. It also costs a rule that has to be kept by hand: the import graph is
+acyclic today, and a surface reaching for a sheet is what would break it first.
+
+*Reconsider if:* a target appears that genuinely takes one file. The answer then
+is a build step that concatenates `src/` back into one, not a merge of the
+sources — the seam is worth more than the convenience.

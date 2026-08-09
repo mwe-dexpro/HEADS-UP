@@ -1,4 +1,4 @@
-# Heads Up — v1.5.0
+# Heads Up — v1.5.2
 
 Lead-time reminders for calendar events. One event produces a _ladder_ of nudges
 at several lead times, so a birthday next week tells you to buy a present ten
@@ -17,7 +17,7 @@ It is built phone-first: every control is at least 44 px tall, every field is
 16 px so nothing zooms on focus, and the verbs live in gestures — swipe a
 reminder right to clear it, left to snooze it, hold it for everything else.
 
-**Released:** 2026-08-08 · `src/HeadsUp.jsx` · 7097 lines · `main`
+**Released:** 2026-08-09 · `src/` · 25 files · 7600 lines · `main`
 
 Version history is in `CHANGELOG.md`; each release is a commit on `main`.
 
@@ -36,6 +36,7 @@ Version history is in `CHANGELOG.md`; each release is a commit on `main`.
 | Sheets dismissed by dragging them down          | Working                                   |
 | Calendar stepped by swiping sideways            | Working                                   |
 | Swipe back from the left edge of a list         | Working                                   |
+| Back button closes the top layer, not the app   | Working, Android and browser              |
 | List names, editable at creation and after      | Working                                   |
 | Bulk done, re-date, move, delete                | Working                                   |
 | Calendar: agenda, month, week, work week, 3-day | Working                                   |
@@ -74,8 +75,8 @@ forgets everything.
 
 ### What the app expects from its host
 
-`src/HeadsUp.jsx` is written to be portable — it is plain React 18 with hooks and
-no bundler-specific imports. It needs exactly two things, and `web/` provides
+`src/` is written to be portable — plain React 18 with hooks, relative imports,
+and nothing bundler-specific. It needs exactly two things, and `web/` provides
 both:
 
 | It needs                                             | Provided by                      |
@@ -83,8 +84,9 @@ both:
 | React 18 with hooks                                  | `web/main.jsx`                   |
 | `window.storage` — async `get`/`set`/`delete`/`list` | `web/storage.js`, over IndexedDB |
 
-Nothing else. Drop the same file into a different host that offers those two and
-it runs unchanged.
+Nothing else. Drop `src/` into a different host that offers those two and it runs
+unchanged. The one thing that is no longer true, since 1.5.2, is that it is a
+single file you can paste somewhere — see decision 037.
 
 ## Hosting it
 
@@ -187,7 +189,11 @@ reminders came back," and it is not recoverable without a migration.
 ## Files
 
 ```
-src/HeadsUp.jsx              the whole app — engine and surface, one file
+src/HeadsUp.jsx              the shell — state, storage, schedule, back stack
+src/lib/                     the engine and the pure helpers, no React
+src/ui/                      the CSS string, the gestures, the shared atoms
+src/surfaces/                one file per tab: Home, Lists, Calendar, Rules
+src/sheets/                  what opens above a surface, owned by the shell
 web/index.html               the shell: manifest, icons, worker registration
 web/main.jsx                 browser entry point; picks the scheduler
 web/storage.js               window.storage over IndexedDB

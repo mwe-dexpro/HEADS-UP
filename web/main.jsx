@@ -7,7 +7,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { installStorage } from "./storage.js";
 import { publishSchedule, initBackgroundCatchup } from "./schedule.js";
-import { nativeScheduler } from "./native.js";
+import { nativeScheduler, installHardwareBack } from "./native.js";
 import HeadsUp from "../src/HeadsUp.jsx";
 
 installStorage();
@@ -20,6 +20,9 @@ const onSchedule = native ? native.publish : publishSchedule;
 
 if (native) native.init();
 else initBackgroundCatchup();
+
+/* The browser's back button needs nobody's help; Android's does. */
+installHardwareBack();
 
 const el = document.getElementById("root");
 if (!el) throw new Error("#root is missing from index.html");
