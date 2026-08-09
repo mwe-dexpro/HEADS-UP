@@ -1,5 +1,42 @@
 # Changelog
 
+## 1.5.2 — 2026-08-09
+
+`src/`, 25 files, 7600 lines
+
+No user-visible change. One file became a tree, along the seam the app already
+had.
+
+### Changed
+
+- **`src/HeadsUp.jsx` is now the shell only** — state, storage, the schedule it
+  publishes, the back stack, and the frame surfaces render into. Everything else
+  moved out:
+  - `src/lib/` — the engine and the pure helpers, no React and no JSX: `time`,
+    `ics`, `data`, `nudges`, `rules`, `todos`, `calendar`, `snooze`, `notify`,
+    `config`, `util`.
+  - `src/ui/` — the CSS string, the gestures, the nudge-to-strings mappings, and
+    the shared atoms.
+  - `src/surfaces/` — one file per tab: `Home`, `Lists`, `Calendar`, `Rules`.
+  - `src/sheets/` — what opens above a surface: `EventSheet`, `TodoSheet`,
+    `ListSheet`, `QuickActions`, `Settings`.
+- **The import graph is one-way and acyclic**: `lib` knows nothing above it, `ui`
+  may use `lib`, surfaces and sheets may use both, and only the shell imports
+  surfaces and sheets. A surface asks for a sheet by callback, never by importing
+  it — which is what keeps the shell the only thing that knows what is open.
+- `npm run format` and `npm run check` now cover `src/**/*.{js,jsx}`.
+
+### Notes
+
+- Nothing was rewritten: every declaration moved verbatim, in its original order.
+  Verified by capturing the rendered DOM of nineteen states — every tab, every
+  calendar view, the settings sheet, a list detail, a to-do sheet, the rule test
+  box — with `Date` and `Math.random` frozen, before and after. Byte-identical.
+- The cost is real and recorded as decision 037: the app is no longer a single
+  file you can paste into a host that takes one file. The host contract itself is
+  unchanged — React 18, `window.storage`, relative imports, nothing
+  bundler-specific.
+
 ## 1.5.1 — 2026-08-09
 
 `src/HeadsUp.jsx`, 7220 lines

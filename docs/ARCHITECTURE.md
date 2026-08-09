@@ -147,10 +147,44 @@ Breaking any of these produces silent data loss, not an error.
     `null` on any event — every reader must cope, and the calendar assumes an hour
     when it is missing.
 
+## Where things live
+
+```
+src/HeadsUp.jsx           the shell: state, storage, schedule, back stack, frame
+src/lib/                  the engine and the pure helpers — no React, no JSX
+  config.js               the key, the horizons, the version
+  util.js                 uid, dedupeBy
+  time.js                 formatting, clock arithmetic, lead-time labels
+  ics.js                  .ics in, events out
+  data.js                 defaults, samples, and the only reader of storage
+  nudges.js               Event × Task × Lead = one nudge
+  rules.js                match counts and the warnings the badge reads
+  todos.js                a to-do's derived facts
+  calendar.js             the grid's geometry and view list
+  snooze.js               the snooze options, shared by swipe and long press
+  notify.js               posting a notification while the app is open
+src/ui/                   things every surface uses
+  css.js                  one string, injected as a <style>
+  gestures.js             swipe, long press, sheet drag, paging, system back
+  nudge.js                nudge → the strings and colours a card renders
+  atoms.jsx               Toggle, Seg, Row, SectionHead, Empty, TabIcon, …
+src/surfaces/             one file per tab — Home, Lists, Calendar, Rules
+src/sheets/               what opens above a surface — Event, Todo, List,
+                          QuickActions, Settings
+```
+
+The dependency direction is one way: `lib` knows nothing above it, `ui` may use
+`lib`, surfaces and sheets may use both, and only the shell imports surfaces and
+sheets. Nothing in `surfaces/` imports anything in `sheets/` and nothing in
+either imports the other's sibling — a surface asks for a sheet by calling a
+callback the shell passed it. That is what keeps the graph acyclic, and it is
+worth keeping that way: the moment a surface opens a sheet directly, the shell
+stops being the one place that knows what is open, and the back stack below
+stops being able to describe it.
+
 ## The host contract
 
-`src/HeadsUp.jsx` is deliberately portable. It assumes two things and nothing
-else:
+`src/` is deliberately portable. It assumes two things and nothing else:
 
 1. **React 18 with hooks**, imported as `react`.
 2. **`window.storage`** — an async key/value store:
@@ -173,10 +207,9 @@ web/sw.js         offline shell, notification display, background catch-up
 web/index.html    manifest, icons, theme colour, worker registration
 ```
 
-Keep it that way. A path to an icon or a service-worker call inside
-`HeadsUp.jsx` is the beginning of the end of running it anywhere else — which is
-why the app posts a notification *request* to the worker rather than naming its
-own icon files.
+Keep it that way. A path to an icon or a service-worker call inside `src/` is the
+beginning of the end of running it anywhere else — which is why the app posts a
+notification *request* to the worker rather than naming its own icon files.
 
 ### The back seam
 

@@ -1,6 +1,6 @@
 {
   "name": "heads-up",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "private": true,
   "description": "Lead-time reminders for calendar events.",
   "type": "module",
@@ -8,8 +8,8 @@
     "dev": "node build.mjs --serve",
     "build": "node build.mjs",
     "preview": "node build.mjs && npx --yes serve dist -l 8000",
-    "format": "prettier --write \"src/**/*.jsx\" \"web/**/*.{js,jsx,html}\" \"*.{json,md}\" \"build.mjs\" \"tools/*.mjs\"",
-    "check": "prettier --check \"src/**/*.jsx\" \"web/**/*.{js,jsx}\" \"build.mjs\" \"tools/*.mjs\" && node build.mjs",
+    "format": "prettier --write \"src/**/*.{js,jsx}\" \"web/**/*.{js,jsx,html}\" \"*.{json,md}\" \"build.mjs\" \"tools/*.mjs\"",
+    "check": "prettier --check \"src/**/*.{js,jsx}\" \"web/**/*.{js,jsx}\" \"build.mjs\" \"tools/*.mjs\" && node build.mjs",
     "icons": "node tools/make-icons.mjs",
     "android": "npm run build && cap sync android && cap open android",
     "android:apk": "npm run build && cap sync android && cd android && ./gradlew assembleDebug"

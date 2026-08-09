@@ -1,5 +1,77 @@
 # Changelog
 
+## 1.5.2 — 2026-08-09
+
+`src/`, 25 files, 7600 lines
+
+No user-visible change. One file became a tree, along the seam the app already
+had.
+
+### Changed
+
+- **`src/HeadsUp.jsx` is now the shell only** — state, storage, the schedule it
+  publishes, the back stack, and the frame surfaces render into. Everything else
+  moved out:
+  - `src/lib/` — the engine and the pure helpers, no React and no JSX: `time`,
+    `ics`, `data`, `nudges`, `rules`, `todos`, `calendar`, `snooze`, `notify`,
+    `config`, `util`.
+  - `src/ui/` — the CSS string, the gestures, the nudge-to-strings mappings, and
+    the shared atoms.
+  - `src/surfaces/` — one file per tab: `Home`, `Lists`, `Calendar`, `Rules`.
+  - `src/sheets/` — what opens above a surface: `EventSheet`, `TodoSheet`,
+    `ListSheet`, `QuickActions`, `Settings`.
+- **The import graph is one-way and acyclic**: `lib` knows nothing above it, `ui`
+  may use `lib`, surfaces and sheets may use both, and only the shell imports
+  surfaces and sheets. A surface asks for a sheet by callback, never by importing
+  it — which is what keeps the shell the only thing that knows what is open.
+- `npm run format` and `npm run check` now cover `src/**/*.{js,jsx}`.
+
+### Notes
+
+- Nothing was rewritten: every declaration moved verbatim, in its original order.
+  Verified by capturing the rendered DOM of nineteen states — every tab, every
+  calendar view, the settings sheet, a list detail, a to-do sheet, the rule test
+  box — with `Date` and `Math.random` frozen, before and after. Byte-identical.
+- The cost is real and recorded as decision 037: the app is no longer a single
+  file you can paste into a host that takes one file. The host contract itself is
+  unchanged — React 18, `window.storage`, relative imports, nothing
+  bundler-specific.
+
+## 1.5.1 — 2026-08-09
+
+`src/HeadsUp.jsx`, 7220 lines
+
+Back means back. The system back button now closes what is open instead of
+closing the app.
+
+### Added
+
+- **The back button works, everywhere it exists** — Android's hardware button,
+  the browser's arrow, the phone's edge gesture. One press closes the top thing
+  that is open: a confirm, the quick-action menu, settings, an event sheet, a
+  to-do sheet, the list naming sheet, a bulk panel, a selection, the list detail,
+  and finally a non-Home tab. At the root, and only there, back leaves the app.
+  - Editing an event is its own layer: back leaves the edit and keeps the event
+    open, the same as its Cancel.
+  - The open layers are mirrored into session history, one entry per layer, so
+    nothing new has to be remembered — the layers are still plain state, and the
+    history stack is derived from them on every render.
+  - Closing something by hand takes its history entry back out, so the next back
+    press is never a dead one.
+
+### Changed
+
+- **Android's back button is claimed by the app** (`@capacitor/app`). Capacitor's
+  bridge does nothing with it by default: the press finished the Activity and
+  quit the app, over an open sheet, mid-edit. It is now forwarded to session
+  history, and calls `exitApp()` only when there is nothing left to close.
+
+### Notes
+
+- `src/HeadsUp.jsx` stays portable. The back stack uses `window.history` behind a
+  `try` and goes quiet where the API is missing or refused, as in a sandboxed
+  frame — every Close button, drag and edge swipe carries on unchanged.
+
 ## 1.5.0 — 2026-08-08
 
 `src/HeadsUp.jsx`, 7097 lines

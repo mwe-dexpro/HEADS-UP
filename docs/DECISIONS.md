@@ -571,3 +571,35 @@ be linked to or reloaded into.
 *Reconsider if:* the app is ever wanted at a URL — shared links, deep links from
 a notification tap, restoring the open sheet after a reload. The answer then is a
 real router whose state the app reads, not a second stack alongside this one.
+
+---
+
+### 037 — One file per surface, not one file for everything
+**Accepted**, asked for by the user. `src/HeadsUp.jsx` had reached 7,220 lines.
+It is now 25 files: the shell, `lib/` for the engine and the pure helpers, `ui/`
+for the CSS, the gestures and the shared atoms, and one file each under
+`surfaces/` and `sheets/`.
+
+The split is along the seam the app already had. Section banners marked the same
+boundaries — Home, Rules, Lists, Calendar, Settings — and the render already
+divided the screen into a surface inside `.lx-scroll` and sheets above it. The
+files follow that division rather than inventing one: a surface never imports a
+sheet, and the shell stays the only thing that knows what is open, which is what
+the back stack from decision 036 depends on.
+
+Nothing was rewritten. Every declaration moved verbatim, in its original order,
+with imports derived from the identifiers it actually reads. The check was a
+rendered-DOM comparison: nineteen states — every tab, every calendar view, the
+settings sheet, a list detail, a to-do sheet, the rule test box — captured with
+`Date` and `Math.random` frozen, before and after. Byte-identical.
+
+*Cost:* the app is no longer one file you can paste into a runtime that takes
+one file. That property is what the artifact runtime wanted and it is gone; what
+survives is the *contract* — React 18, `window.storage`, relative imports only,
+no bundler-specific syntax — which any bundler or an import-map host still
+satisfies. It also costs a rule that has to be kept by hand: the import graph is
+acyclic today, and a surface reaching for a sheet is what would break it first.
+
+*Reconsider if:* a target appears that genuinely takes one file. The answer then
+is a build step that concatenates `src/` back into one, not a merge of the
+sources — the seam is worth more than the convenience.
