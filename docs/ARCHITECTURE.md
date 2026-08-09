@@ -157,6 +157,9 @@ else:
    `get(key) -> {value} | null`, `set(key, value)`, `delete(key)`, `list()`.
 3. **Optionally** an `onSchedule` prop. Everything else degrades to "notifies
    while open" without it, which is exactly what the artifact runtime gets.
+4. **Optionally** `window.history`. Used for back navigation only, behind a
+   `try`; a frame that refuses `pushState` gets an app whose Close buttons and
+   drags all still work.
 
 Everything platform-specific lives outside the app file, in `web/`:
 
@@ -164,7 +167,8 @@ Everything platform-specific lives outside the app file, in `web/`:
 web/main.jsx      mounts the app, installs the shim, picks a scheduler
 web/storage.js    window.storage over IndexedDB, with an in-memory fallback
 web/schedule.js   publishes the queue to the worker; registers periodic sync
-web/native.js     publishes the queue to Android's AlarmManager (Capacitor)
+web/native.js     publishes the queue to Android's AlarmManager (Capacitor),
+                  and hands Android's back button to session history
 web/sw.js         offline shell, notification display, background catch-up
 web/index.html    manifest, icons, theme colour, worker registration
 ```
@@ -173,6 +177,31 @@ Keep it that way. A path to an icon or a service-worker call inside
 `HeadsUp.jsx` is the beginning of the end of running it anywhere else — which is
 why the app posts a notification *request* to the worker rather than naming its
 own icon files.
+
+### The back seam
+
+There is no router. Which surface is showing is plain state — `tab`, `listId`,
+`openTodo`, `evOpen`, `settingsOpen`, `quickId`, `confirm` — and back navigation
+is a projection of that state, not a second source of truth for it.
+
+`useSystemBack(layers)` takes the open layers, outermost first, rebuilt on every
+render, and keeps session history the same depth: one entry per layer. A
+`popstate` closes the last entry in the array. A layer closed by hand leaves a
+spare entry behind, which the next render reclaims with `history.go(-n)`; the
+`popstate` that arrives from that is swallowed rather than read as a press.
+
+Two consequences worth knowing:
+
+- **A layer that is not rendered must not be on the stack.** Each condition in
+  the stack mirrors the render guard of the thing it closes. Get that wrong and
+  back presses go missing — the entry exists, the closer does nothing visible.
+- **The browser needs no help; Android does.** Capacitor's bridge has no back
+  handling at all: with no listener, the press finishes the Activity and the app
+  quits over an open sheet. `web/native.js` claims the button and forwards it to
+  `history.back()` when the WebView reports `canGoBack`, which — because the only
+  entries are ours — means exactly "something is open". At the root it calls
+  `exitApp()`, which has to be explicit, because registering the listener is what
+  turned the default off.
 
 ### The schedule seam
 

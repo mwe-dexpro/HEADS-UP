@@ -36,6 +36,7 @@ Version history is in `CHANGELOG.md`; each release is a commit on `main`.
 | Sheets dismissed by dragging them down          | Working                                   |
 | Calendar stepped by swiping sideways            | Working                                   |
 | Swipe back from the left edge of a list         | Working                                   |
+| Back button closes the top layer, not the app   | Working, Android and browser              |
 | List names, editable at creation and after      | Working                                   |
 | Bulk done, re-date, move, delete                | Working                                   |
 | Calendar: agenda, month, week, work week, 3-day | Working                                   |

@@ -14,8 +14,30 @@
    the web build falls back to schedule.js.
    ============================================================ */
 
+import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
+
+/* ---------- the hardware back button ----------
+   Capacitor's own bridge does nothing with it: with no listener registered the
+   press falls through to the Activity, which finishes, which quits the app —
+   even with a sheet open over the page.
+
+   The app keeps its open layers in session history (see `useSystemBack` in
+   src/HeadsUp.jsx), and the WebView counts those entries, so `canGoBack` is
+   exactly "something is open". Hand the press to history and the app closes one
+   layer; at the root there is nothing left to close and leaving is right, but it
+   has to be said explicitly, because registering this listener is what turned
+   the default off. */
+export function installHardwareBack() {
+  if (!Capacitor.isNativePlatform()) return;
+  App.addListener("backButton", ({ canGoBack }) => {
+    if (canGoBack) window.history.back();
+    else App.exitApp();
+  }).catch((err) => {
+    console.warn("[headsup] could not claim the hardware back button", err);
+  });
+}
 
 /* Android notification ids are 32-bit ints; ours are strings like
    "evt-3f2::birthday::buy::10:9". Hash them, and keep it positive — a negative

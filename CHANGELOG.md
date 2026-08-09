@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.5.1 — 2026-08-09
+
+`src/HeadsUp.jsx`, 7220 lines
+
+Back means back. The system back button now closes what is open instead of
+closing the app.
+
+### Added
+
+- **The back button works, everywhere it exists** — Android's hardware button,
+  the browser's arrow, the phone's edge gesture. One press closes the top thing
+  that is open: a confirm, the quick-action menu, settings, an event sheet, a
+  to-do sheet, the list naming sheet, a bulk panel, a selection, the list detail,
+  and finally a non-Home tab. At the root, and only there, back leaves the app.
+  - Editing an event is its own layer: back leaves the edit and keeps the event
+    open, the same as its Cancel.
+  - The open layers are mirrored into session history, one entry per layer, so
+    nothing new has to be remembered — the layers are still plain state, and the
+    history stack is derived from them on every render.
+  - Closing something by hand takes its history entry back out, so the next back
+    press is never a dead one.
+
+### Changed
+
+- **Android's back button is claimed by the app** (`@capacitor/app`). Capacitor's
+  bridge does nothing with it by default: the press finished the Activity and
+  quit the app, over an open sheet, mid-edit. It is now forwarded to session
+  history, and calls `exitApp()` only when there is nothing left to close.
+
+### Notes
+
+- `src/HeadsUp.jsx` stays portable. The back stack uses `window.history` behind a
+  `try` and goes quiet where the API is missing or refused, as in a sandboxed
+  frame — every Close button, drag and edge swipe carries on unchanged.
+
 ## 1.5.0 — 2026-08-08
 
 `src/HeadsUp.jsx`, 7097 lines

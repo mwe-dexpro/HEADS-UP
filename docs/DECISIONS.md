@@ -539,3 +539,35 @@ list you had to name is a list you meant to make.
 *Reconsider if:* a fast path is wanted for throwaway lists. The fix is a Create
 button that accepts the empty field, which it already does, not a return to
 silent naming.
+
+---
+
+### 036 — Back navigation is derived from state, through session history
+**Accepted**, reported by the user: there was no back navigation. Every overlay
+had a Close button, a drag and — in the list detail — an edge swipe, but the
+*system* back was unhandled. In a browser it left the app; on Android it was
+worse, because Capacitor's bridge has no back handling at all and the press
+finished the Activity outright, quitting over an open sheet.
+
+Two shapes were available. A router, which would have made the URL the source of
+truth for which surface is showing; or a projection, which keeps the plain state
+(`tab`, `listId`, `openTodo`, `evOpen`, …) authoritative and mirrors its depth
+into session history, one entry per open layer. The projection was chosen. The
+app already resolves everything it shows from that state on every render, and a
+router would have created a second copy of it to keep in step — the exact class
+of bug invariant 3 exists to avoid.
+
+History rather than a private stack, because history is what the browser's own
+back button drives, and because the Capacitor WebView counts those entries as
+`canGoBack` — so the hardware button can be forwarded to `history.back()` by
+`web/native.js` without the app file knowing Android exists.
+
+*Cost:* a layer that is on screen but not on the stack has a back press that does
+nothing, and a layer on the stack but not on screen eats one. Each condition in
+the stack therefore has to mirror the render guard beside it, by hand, and adding
+an overlay means adding both. The URL also stays put, so a surface still cannot
+be linked to or reloaded into.
+
+*Reconsider if:* the app is ever wanted at a URL — shared links, deep links from
+a notification tap, restoring the open sheet after a reload. The answer then is a
+real router whose state the app reads, not a second stack alongside this one.

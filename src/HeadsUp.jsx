@@ -21,7 +21,7 @@ import React, {
 
 const STORE_KEY = "headsup:v1";
 const HORIZON_DAYS = 400;
-const APP_VERSION = "1.5.0";
+const APP_VERSION = "1.5.1";
 /* How far ahead, and how many, the app hands to the host to schedule. Android's
    alarm scheduler and iOS both get unhappy past a few dozen pending
    notifications, and a reminder six weeks out will be republished long before
@@ -6031,6 +6031,77 @@ function Settings({
   );
 }
 
+/* ---------- the system back button ----------
+   Everything that opens above the page — a sheet, the quick-action menu, a
+   confirm, the list detail — can already be dismissed by hand, by its own
+   button or by a drag. What none of them answered was the *system* back:
+   Android's button, the browser's arrow, the edge gesture. Without one, back
+   at any depth left the app entirely, which with a sheet open is never what
+   was meant.
+
+   The open layers are rebuilt every render, outermost first, and mirrored into
+   session history one entry per layer. A pop closes the top layer. A layer
+   closed by hand takes its entry back out with `history.go`, and the popstate
+   that follows is swallowed rather than read as a second press.
+
+   History is the only mechanism used, deliberately. It is what the browser's
+   own back drives, and under Capacitor the WebView counts those entries as
+   `canGoBack` — so `web/native.js` can forward the hardware button to
+   `history.back()` without either half knowing what is on the stack. Where the
+   API is missing or refused, as in a sandboxed frame, the hook goes quiet and
+   the on-screen buttons carry on alone. */
+function useSystemBack(layers) {
+  const depth = layers.length;
+  /* Read at pop time, not at push time: the closer must act on the layers as
+     they are when the button is pressed, not as they were when it opened. */
+  const stack = useRef(layers);
+  stack.current = layers;
+  const pushed = useRef(0);
+  const swallow = useRef(0);
+  const live = useRef(true);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.addEventListener)
+      return undefined;
+    const onPop = () => {
+      if (swallow.current > 0) {
+        swallow.current -= 1;
+        return;
+      }
+      /* Past our own entries: this back belongs to whatever came before the
+         app, and letting it through is the point. */
+      if (pushed.current <= 0) return;
+      pushed.current -= 1;
+      const top = stack.current[stack.current.length - 1];
+      if (top) top();
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  useEffect(() => {
+    if (!live.current || typeof window === "undefined" || !window.history)
+      return;
+    try {
+      while (pushed.current < depth) {
+        pushed.current += 1;
+        /* No URL argument: the address bar is not part of this. */
+        window.history.pushState({ headsUpDepth: pushed.current }, "");
+      }
+      if (pushed.current > depth) {
+        const drop = pushed.current - depth;
+        pushed.current = depth;
+        swallow.current += drop;
+        window.history.go(-drop);
+      }
+    } catch (err) {
+      live.current = false;
+      pushed.current = 0;
+      swallow.current = 0;
+    }
+  }, [depth]);
+}
+
 /* ============================================================
    The app — state owner, storage, notifications, routing, undo
    ============================================================ */
@@ -6263,6 +6334,58 @@ export default function HeadsUp({ onSchedule }) {
   }, [counts.now, data]);
 
   const swipe = useSwipe(data ? data.settings.haptics : false);
+
+  /* The back stack, outermost first — the last entry is what a back press
+     closes. It has to be built before the loading return below, because a hook
+     may not be called conditionally; every condition here therefore survives
+     `data` being null, at which point nothing is open and the stack is empty.
+
+     Each condition mirrors the render guard of the thing it closes, so a layer
+     that is not on screen is not on the stack. The order is the order they can
+     appear in: a to-do sheet only opens over a list detail, a bulk panel only
+     over a selection, and a confirm is always on top of everything. */
+  const openList =
+    data && listId ? data.lists.find((l) => l.id === listId) : null;
+  const openItem =
+    openList && openTodo
+      ? (openList.items || []).find((i) => i.id === openTodo)
+      : null;
+  const backStack = [];
+  const inList = !!openList && tab === "lists";
+  const selecting = inList && sel.length > 0 && !openTodo;
+  if (tab !== "home") backStack.push(() => setTab("home"));
+  if (inList)
+    backStack.push(() => {
+      setListId(null);
+      setOpenTodo(null);
+      setSel([]);
+      setBulkPanel(null);
+    });
+  if (selecting)
+    backStack.push(() => {
+      setSel([]);
+      setBulkPanel(null);
+    });
+  if (selecting && bulkPanel) backStack.push(() => setBulkPanel(null));
+  if (openItem) backStack.push(() => setOpenTodo(null));
+  if (listEdit) backStack.push(() => setListEdit(null));
+  if (evOpen)
+    backStack.push(() => {
+      setEvOpen(null);
+      setEvEdit(false);
+      setDraft(null);
+    });
+  /* Editing an existing event is a layer of its own: back leaves the edit and
+     keeps the event open, which is what its own Cancel does. */
+  if (evOpen && evEdit && draft && draft.id)
+    backStack.push(() => {
+      setEvEdit(false);
+      setDraft(null);
+    });
+  if (settingsOpen) backStack.push(() => setSettingsOpen(false));
+  if (quickId) backStack.push(() => setQuickId(null));
+  if (confirm) backStack.push(() => setConfirm(null));
+  useSystemBack(backStack);
 
   if (!data) {
     return (
@@ -6775,9 +6898,9 @@ export default function HeadsUp({ onSchedule }) {
     rules: warnings.length,
   };
 
-  const list = listId ? data.lists.find((l) => l.id === listId) : null;
-  const todo =
-    list && openTodo ? (list.items || []).find((i) => i.id === openTodo) : null;
+  /* Resolved above the loading return, because the back stack needs them too. */
+  const list = openList;
+  const todo = openItem;
   /* Both overlays are addressed by id and resolved here, against this render's
      data. A quick-action menu holding a stale nudge would act on a due time
      that no longer exists. */
