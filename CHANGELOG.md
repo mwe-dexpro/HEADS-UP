@@ -26,6 +26,14 @@ had.
   it — which is what keeps the shell the only thing that knows what is open.
 - `npm run format` and `npm run check` now cover `src/**/*.{js,jsx}`.
 
+### Removed
+
+- **`docs/CHANGELOG.md`**, a second copy of this file that nothing linked to and
+  that had drifted — same words, different emphasis markers, because only the
+  root copy was ever formatted. Its content was identical to this file's, line
+  for line once formatting is normalised, so nothing was lost. `CHANGELOG.md` at
+  the root is the one the README points at and the only one now.
+
 ### Notes
 
 - Nothing was rewritten: every declaration moved verbatim, in its original order.
