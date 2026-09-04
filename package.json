@@ -1,0 +1,30 @@
+{
+  "name": "heads-up",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Heads Up — events and tasks, planned and reminded in advance.",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w @heads-up/web",
+    "dev:api": "npm run dev -w @heads-up/api",
+    "build:web": "npm run build -w @heads-up/web",
+    "build:shared": "npm run build -w @heads-up/shared",
+    "deploy:api": "npm run deploy -w @heads-up/api",
+    "db:generate": "npm run db:generate -w @heads-up/api",
+    "db:migrate:local": "npm run db:migrate:local -w @heads-up/api",
+    "android": "npm run build:web && npx cap sync android && npx cap open android",
+    "format": "prettier --write \"apps/**/*.{ts,tsx}\" \"packages/**/*.ts\" \"*.{json,md}\"",
+    "check": "npm run check -w @heads-up/web && npm run check -w @heads-up/api"
+  },
+  "devDependencies": {
+    "prettier": "^3.8.1",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

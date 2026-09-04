@@ -1,0 +1,13 @@
+# Copy to `.dev.vars` (gitignored) for `wrangler dev`. In production these
+# are set with `wrangler secret put <NAME>`, never committed and never put
+# in wrangler.toml.
+
+# Entra app registration's client secret (confidential client).
+MS_CLIENT_SECRET=
+
+# ES256 private key, JWK format, one line. Generate with `npm run keys:generate`.
+JWT_SIGNING_KEY=
+
+# 32+ bytes of random data, base64. Generate with:
+#   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+REFRESH_TOKEN_PEPPER=

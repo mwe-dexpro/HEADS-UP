@@ -1,0 +1,28 @@
+name = "heads-up-api"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# One-time setup (see docs/ARCHITECTURE.md "Deploying the API"):
+#   wrangler d1 create heads-up
+# then paste the returned database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "heads-up"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "drizzle"
+
+# Non-secret config. Secrets (MS_CLIENT_SECRET, JWT_SIGNING_KEY,
+# REFRESH_TOKEN_PEPPER) are never set here — see `wrangler secret put` in
+# docs/ARCHITECTURE.md and apps/api/.dev.vars.example for local dev.
+[vars]
+MS_TENANT = "common"
+MS_CLIENT_ID = "REPLACE_WITH_ENTRA_APPLICATION_CLIENT_ID"
+# The Worker's own public URL, used to build the OAuth redirect_uri.
+API_BASE_URL = "https://heads-up-api.<your-subdomain>.workers.dev"
+# Exact origin(s) allowed to call this API — CSRF/CORS allow-list.
+# No wildcards: this is a security boundary, not a convenience default.
+FRONTEND_ORIGINS = "https://mwe-dexpro.github.io"
+
+# Local development overrides — `wrangler dev` reads this automatically.
+# Real per-environment values, not committed: see .dev.vars.example.

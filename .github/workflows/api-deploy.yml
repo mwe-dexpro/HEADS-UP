@@ -1,0 +1,51 @@
+name: Deploy API to Cloudflare Workers
+
+# One-time setup (see docs/ARCHITECTURE.md "Deploying the API"):
+#   1. `wrangler d1 create heads-up`, paste the database_id into
+#      apps/api/wrangler.toml.
+#   2. Create a Cloudflare API token (Workers Scripts:Edit, D1:Edit) and add
+#      it as the repo secret CLOUDFLARE_API_TOKEN.
+#   3. `wrangler secret put MS_CLIENT_SECRET / JWT_SIGNING_KEY /
+#      REFRESH_TOKEN_PEPPER` against the deployed Worker (these are
+#      per-environment secrets, not something CI sets).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/api/**"
+      - "packages/shared/**"
+      - ".github/workflows/api-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-deploy
+  cancel-in-progress: false # never cancel mid-migration
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply D1 migrations
+        working-directory: apps/api
+        run: npx wrangler d1 migrations apply heads-up --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Deploy Worker
+        working-directory: apps/api
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

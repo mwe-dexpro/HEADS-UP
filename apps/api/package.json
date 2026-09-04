@@ -1,0 +1,28 @@
+{
+  "name": "@heads-up/api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply heads-up --local",
+    "db:migrate:remote": "wrangler d1 migrations apply heads-up --remote",
+    "keys:generate": "node scripts/generate-signing-key.mjs"
+  },
+  "dependencies": {
+    "@heads-up/shared": "*",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.6.14",
+    "jose": "^5.9.6",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^5.7.3",
+    "wrangler": "^4.129.0"
+  }
+}

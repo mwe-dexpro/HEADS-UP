@@ -1,0 +1,11 @@
+{
+  "name": "Heads Up",
+  "short_name": "Heads Up",
+  "description": "Events and tasks, planned and reminded in advance.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#F3F0EE",
+  "theme_color": "#F3F0EE",
+  "icons": []
+}

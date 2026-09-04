@@ -1,0 +1,17 @@
+{
+  "name": "@heads-up/android",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Capacitor wrapper around apps/web's build — see docs/DECISIONS.md ADR-011 (Capacitor, not a TWA).",
+  "scripts": {
+    "sync": "cap sync android",
+    "open": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.1",
+    "@capacitor/core": "^7.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.1"
+  }
+}
