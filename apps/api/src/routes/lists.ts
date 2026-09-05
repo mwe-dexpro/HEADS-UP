@@ -4,6 +4,7 @@ import { createDb } from "../db/client.js";
 import { lists } from "../db/schema.js";
 import { logAudit } from "../lib/audit.js";
 import { newId } from "../lib/ids.js";
+import { findOwned } from "../lib/ownership.js";
 import { requireAuth } from "../middleware/auth.js";
 import type { AuthVariables, Env } from "../types.js";
 import { createListSchema, updateListSchema } from "./validation.js";
@@ -32,7 +33,7 @@ app.post("/", async (c) => {
 
 app.get("/:id", async (c) => {
   const db = createDb(c.env.DB);
-  const row = await db.query.lists.findFirst({ where: and(eq(lists.id, c.req.param("id")), eq(lists.userId, c.get("userId"))) });
+  const row = await findOwned((where) => db.query.lists.findFirst({ where }), lists.id, lists.userId, c.req.param("id"), c.get("userId"));
   if (!row) return c.json({ error: "not found" }, 404);
   return c.json({ list: row });
 });
@@ -44,7 +45,7 @@ app.patch("/:id", async (c) => {
   const db = createDb(c.env.DB);
   const userId = c.get("userId");
   const id = c.req.param("id");
-  const existing = await db.query.lists.findFirst({ where: and(eq(lists.id, id), eq(lists.userId, userId)) });
+  const existing = await findOwned((where) => db.query.lists.findFirst({ where }), lists.id, lists.userId, id, userId);
   if (!existing) return c.json({ error: "not found" }, 404);
 
   const [row] = await db
@@ -59,7 +60,7 @@ app.delete("/:id", async (c) => {
   const db = createDb(c.env.DB);
   const userId = c.get("userId");
   const id = c.req.param("id");
-  const existing = await db.query.lists.findFirst({ where: and(eq(lists.id, id), eq(lists.userId, userId)) });
+  const existing = await findOwned((where) => db.query.lists.findFirst({ where }), lists.id, lists.userId, id, userId);
   if (!existing) return c.json({ error: "not found" }, 404);
 
   await db.delete(lists).where(and(eq(lists.id, id), eq(lists.userId, userId)));

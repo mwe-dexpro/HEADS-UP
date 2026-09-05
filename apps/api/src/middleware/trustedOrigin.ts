@@ -1,4 +1,5 @@
 import type { MiddlewareHandler } from "hono";
+import { isAllowedOrigin } from "../lib/origins.js";
 import type { Env } from "../types.js";
 
 /**
@@ -12,9 +13,7 @@ import type { Env } from "../types.js";
  * SameSite=None + Path-scoping on the cookie itself.
  */
 export const requireTrustedOrigin: MiddlewareHandler<{ Bindings: Env }> = async (c, next) => {
-  const allowed = new Set(c.env.FRONTEND_ORIGINS.split(",").map((o) => o.trim()));
-  const origin = c.req.header("origin");
-  if (!origin || !allowed.has(origin)) {
+  if (!isAllowedOrigin(c.env, c.req.header("origin"))) {
     return c.json({ error: "origin not allowed" }, 403);
   }
   await next();

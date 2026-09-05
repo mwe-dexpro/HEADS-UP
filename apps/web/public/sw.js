@@ -25,8 +25,15 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(req)
       .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+        // Only cache a genuinely good response. fetch() only rejects on a
+        // network failure, not an HTTP error — an uncached `res` here would
+        // still resolve normally, and a transient 500/404 would overwrite
+        // the last good cached copy, so the *next* real offline moment
+        // serves that error instead of the last thing that actually worked.
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+        }
         return res;
       })
       .catch(() => caches.match(req)),

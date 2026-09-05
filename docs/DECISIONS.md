@@ -323,3 +323,80 @@ token, the other got `401 invalid refresh token`, and a direct D1 query
 afterward showed *both* rows in that family — the loser's original token and
 the winner's freshly-minted replacement — with `revoked_at` set on both,
 confirming no live token survived the race on either side.
+
+---
+
+### 022 — OAuth callback redirects to the origin sign-in started from, not `FRONTEND_ORIGINS[0]`
+**Accepted, fixing a real bug found in a second review pass.** `FRONTEND_ORIGINS` is documented and designed as a list — CORS and the CSRF check
+both already iterate it — but the callback's redirect picked
+`.split(",")[0]` unconditionally. With only one origin configured this was
+invisible; the moment a second one exists (a local-dev origin, or a
+Capacitor/Android WebView origin once Phase 4 wraps the app), anyone who
+started sign-in from any origin but the first would be silently redirected
+to the wrong one after Microsoft's callback, with no way to receive their
+access token.
+
+Fixed by having `/auth/microsoft/start` read and validate the caller's
+`Origin` header (the same allow-list check as `requireTrustedOrigin`,
+factored out to `lib/origins.ts` so the two can't drift) and stash it in the
+existing state/nonce/codeVerifier cookie. The callback redirects to
+`txn.origin`, not a fixed index into the config list.
+
+*Verified*: `POST /auth/microsoft/start` with an allow-listed `Origin`
+returns a `Set-Cookie` whose value, decoded, includes that exact origin;
+with a missing or disallowed `Origin` it 403s before a transaction cookie is
+ever issued.
+
+---
+
+### 023 — Rate-limit buckets are cleaned up opportunistically, not by a Cron Trigger
+**Accepted, fixing a real bug found in a second review pass.** `rate_limit_buckets` had a row inserted per `(ip, route, 5-minute window)` with
+nothing ever deleting old ones — unbounded growth over the life of a
+deployed instance, for a table that only needs to remember the current and
+immediately-preceding window.
+
+Fixed with one extra `DELETE ... WHERE window_start < :currentWindowStart`
+inside `checkRateLimit` itself — every call trims everything older than its
+own current window, for every key, not just the caller's own. A dedicated
+Cloudflare Cron Trigger would be the more "proper" fix, but that's
+additional deploy-time configuration for a table whose growth is bounded by
+`/auth/*` traffic specifically (already rate-limited, i.e. already
+low-volume by construction).
+
+*Reconsider if:* `/auth/*` traffic ever grows enough that an extra DELETE on
+every call becomes a measurable cost — a Cron Trigger sweep is the next
+step, not a bigger in-request cleanup.
+
+*Verified*: rows from a rate-limit test run the previous day were gone from
+the table after the fixed code ran once in a new window — confirmed by
+direct query, not inferred from the absence of an error.
+
+---
+
+### 024 — The client-side cache key's get-or-create is also atomic, not read-then-write
+**Accepted, fixing a real bug found in a second review pass — the client-side
+counterpart to ADR-021.** `secureCache.ts`'s `getOrCreateKey` checked for an
+existing `CryptoKey` in a *readonly* IndexedDB transaction, then wrote a
+newly generated one in a *separate* readwrite transaction. Two calls racing
+between those two transactions (two tabs of the same origin loading at
+once, or a future feature reading multiple cache entries in parallel) could
+each see no key and each generate and store a different one — the second
+write wins silently, and anything already encrypted under the first key
+becomes permanently undecryptable (`getCached` just returns `null` for it,
+indistinguishable from an empty cache).
+
+Fixed by doing the get and the conditional put inside one IndexedDB
+transaction, which the browser serializes against other transactions
+touching the same object store — the same "make it one atomic operation,
+not two" fix as ADR-021, just enforced by IndexedDB's transaction semantics
+instead of a SQL `WHERE ... RETURNING`. The AES-GCM key itself still has to
+be generated *before* opening that transaction: `crypto.subtle.generateKey`
+is real async work, and awaiting it from inside an open IndexedDB
+transaction risks the transaction auto-committing out from under the
+subsequent write (a well-known IndexedDB gotcha — transactions survive
+microtask gaps but not real async ones).
+
+*Cost:* a losing caller generates a throwaway AES-GCM key it never uses.
+Cheap (~1ms, WebCrypto-native) and only ever happens on the very first use
+per browser profile, once a key is stored every later call finds it on the
+first `get` and returns immediately.

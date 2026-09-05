@@ -36,18 +36,40 @@ function reqToPromise<T>(req: IDBRequest<T>): Promise<T> {
 }
 
 async function getOrCreateKey(db: IDBDatabase): Promise<CryptoKey> {
-  const tx = db.transaction(KEY_STORE, "readonly");
-  const existing = await reqToPromise<CryptoKey | undefined>(tx.objectStore(KEY_STORE).get(KEY_RECORD_ID));
-  if (existing) return existing;
+  // The get-and-maybe-put has to happen inside a *single* transaction, not
+  // a readonly check followed by a separate readwrite write: two calls
+  // racing here (e.g. two tabs open at once) could otherwise both see no
+  // existing key between those two transactions and both generate and
+  // store a different one — the second write silently wins, and anything
+  // already encrypted under the first key becomes permanently
+  // undecryptable (getCached just returns null for it, indistinguishable
+  // from an empty cache).
+  //
+  // The candidate key is generated *before* opening the transaction,
+  // because crypto.subtle is real async work that would let an open
+  // IndexedDB transaction auto-commit out from under us if awaited inside
+  // it — generating one we might throw away is cheap and keeps the actual
+  // get-then-put atomic (IndexedDB serializes readwrite transactions
+  // against the same store, so a second caller's get is guaranteed to run
+  // only after the first caller's put has committed).
+  const candidate = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
 
-  const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
-  const writeTx = db.transaction(KEY_STORE, "readwrite");
-  writeTx.objectStore(KEY_STORE).put(key, KEY_RECORD_ID);
-  await new Promise<void>((resolve, reject) => {
-    writeTx.oncomplete = () => resolve();
-    writeTx.onerror = () => reject(writeTx.error);
+  return new Promise<CryptoKey>((resolve, reject) => {
+    const tx = db.transaction(KEY_STORE, "readwrite");
+    const store = tx.objectStore(KEY_STORE);
+    const getReq = store.get(KEY_RECORD_ID);
+    getReq.onsuccess = () => {
+      const existing = getReq.result as CryptoKey | undefined;
+      if (existing) {
+        resolve(existing);
+        return;
+      }
+      store.put(candidate, KEY_RECORD_ID);
+      resolve(candidate);
+    };
+    getReq.onerror = () => reject(getReq.error);
+    tx.onerror = () => reject(tx.error);
   });
-  return key;
 }
 
 export async function setCached(cacheKey: string, value: unknown): Promise<void> {

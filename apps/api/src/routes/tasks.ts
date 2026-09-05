@@ -4,6 +4,7 @@ import { createDb, type Db } from "../db/client.js";
 import { events, lists, reminders, tasks } from "../db/schema.js";
 import { logAudit } from "../lib/audit.js";
 import { newId } from "../lib/ids.js";
+import { findOwned } from "../lib/ownership.js";
 import { requireAuth } from "../middleware/auth.js";
 import type { AuthVariables, Env } from "../types.js";
 import { createTaskSchema, updateTaskSchema } from "./validation.js";
@@ -12,7 +13,7 @@ const app = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
 app.use("*", requireAuth());
 
 async function loadTaskWithReminders(db: Db, userId: string, id: string) {
-  const task = await db.query.tasks.findFirst({ where: and(eq(tasks.id, id), eq(tasks.userId, userId)) });
+  const task = await findOwned((where) => db.query.tasks.findFirst({ where }), tasks.id, tasks.userId, id, userId);
   if (!task) return null;
   const taskReminders = await db.query.reminders.findMany({ where: eq(reminders.taskId, id) });
   return { ...task, reminders: taskReminders };
@@ -24,11 +25,11 @@ async function loadTaskWithReminders(db: Db, userId: string, id: string) {
 async function assertLinkOwnership(db: Db, userId: string, eventId?: string | null, listId?: string | null): Promise<string | null> {
   if (eventId && listId) return "a task can link to an event or a list, not both";
   if (eventId) {
-    const owned = await db.query.events.findFirst({ where: and(eq(events.id, eventId), eq(events.userId, userId)) });
+    const owned = await findOwned((where) => db.query.events.findFirst({ where }), events.id, events.userId, eventId, userId);
     if (!owned) return "eventId does not exist";
   }
   if (listId) {
-    const owned = await db.query.lists.findFirst({ where: and(eq(lists.id, listId), eq(lists.userId, userId)) });
+    const owned = await findOwned((where) => db.query.lists.findFirst({ where }), lists.id, lists.userId, listId, userId);
     if (!owned) return "listId does not exist";
   }
   return null;
@@ -105,7 +106,7 @@ app.patch("/:id", async (c) => {
   const db = createDb(c.env.DB);
   const userId = c.get("userId");
   const id = c.req.param("id");
-  const existing = await db.query.tasks.findFirst({ where: and(eq(tasks.id, id), eq(tasks.userId, userId)) });
+  const existing = await findOwned((where) => db.query.tasks.findFirst({ where }), tasks.id, tasks.userId, id, userId);
   if (!existing) return c.json({ error: "not found" }, 404);
 
   const nextEventId = parsed.data.eventId !== undefined ? parsed.data.eventId : existing.eventId;
@@ -135,7 +136,7 @@ app.delete("/:id", async (c) => {
   const db = createDb(c.env.DB);
   const userId = c.get("userId");
   const id = c.req.param("id");
-  const existing = await db.query.tasks.findFirst({ where: and(eq(tasks.id, id), eq(tasks.userId, userId)) });
+  const existing = await findOwned((where) => db.query.tasks.findFirst({ where }), tasks.id, tasks.userId, id, userId);
   if (!existing) return c.json({ error: "not found" }, 404);
 
   await db.delete(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId)));

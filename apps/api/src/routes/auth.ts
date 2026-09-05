@@ -54,7 +54,7 @@ async function findOrCreateUser(db: ReturnType<typeof createDb>, identity: { msA
   return created;
 }
 
-auth.post("/microsoft/start", async (c) => {
+auth.post("/microsoft/start", requireTrustedOrigin, async (c) => {
   const { allowed } = await checkRateLimit(createDb(c.env.DB), `${clientIp(c)}:auth-start`, 20, 5 * 60 * 1000);
   if (!allowed) return c.json({ error: "too many requests" }, 429);
 
@@ -62,7 +62,11 @@ auth.post("/microsoft/start", async (c) => {
   const nonce = randomToken(16);
   const codeVerifier = randomToken(32);
   const codeChallenge = await pkceChallengeFromVerifier(codeVerifier);
-  setOAuthTxnCookie(c, { state, nonce, codeVerifier });
+  // requireTrustedOrigin already checked this is non-null and allow-listed —
+  // stashed so the callback can redirect back to *this* origin rather than
+  // always FRONTEND_ORIGINS[0] (see docs/DECISIONS.md ADR-022).
+  const origin = c.req.header("origin")!;
+  setOAuthTxnCookie(c, { state, nonce, codeVerifier, origin });
   const url = buildAuthorizeUrl(c.env, { redirectUri: redirectUri(c.env), state, nonce, codeChallenge });
   return c.json({ url });
 });
@@ -97,13 +101,19 @@ auth.get("/microsoft/callback", async (c) => {
     // requests or logged by intermediaries, and the SPA route that reads it
     // stores it in memory only and then drops it from the URL immediately.
     //
-    // The path is built from FRONTEND_APP_PATH, not hardcoded to "/auth/complete"
-    // — FRONTEND_ORIGINS is origin-only (it has to be: it's compared against
-    // the browser's Origin header, which never includes a path) and GitHub
-    // Pages serves a project site from a subpath (/HEADS-UP/), so a
-    // hardcoded root-relative path would 404 there. See docs/DECISIONS.md
-    // ADR-020.
-    const redirect = new URL(c.env.FRONTEND_ORIGINS.split(",")[0]);
+    // Redirects to the origin *this sign-in started from* (txn.origin,
+    // validated against FRONTEND_ORIGINS back at /microsoft/start) — not
+    // always FRONTEND_ORIGINS[0]. With more than one allowed origin (a
+    // second frontend, or a Capacitor WebView origin once Phase 4 wraps the
+    // app for Android), always picking index 0 would silently strand
+    // anyone who signed in from a different one. See docs/DECISIONS.md
+    // ADR-022.
+    //
+    // The path is built from FRONTEND_APP_PATH, not hardcoded to
+    // "/auth/complete" — GitHub Pages serves a project site from a subpath
+    // (/HEADS-UP/), so a hardcoded root-relative path would 404 there. See
+    // docs/DECISIONS.md ADR-020.
+    const redirect = new URL(txn.origin);
     const appPath = c.env.FRONTEND_APP_PATH.replace(/\/+$/, "");
     redirect.pathname = `${appPath}/auth/complete`;
     redirect.hash = `access_token=${encodeURIComponent(token)}&expires_at=${expiresAt}`;

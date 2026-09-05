@@ -4,6 +4,7 @@ import { createDb } from "../db/client.js";
 import { events } from "../db/schema.js";
 import { logAudit } from "../lib/audit.js";
 import { newId } from "../lib/ids.js";
+import { findOwned } from "../lib/ownership.js";
 import { requireAuth } from "../middleware/auth.js";
 import type { AuthVariables, Env } from "../types.js";
 import { createEventSchema, updateEventSchema } from "./validation.js";
@@ -42,7 +43,7 @@ app.post("/", async (c) => {
 
 app.get("/:id", async (c) => {
   const db = createDb(c.env.DB);
-  const row = await db.query.events.findFirst({ where: and(eq(events.id, c.req.param("id")), eq(events.userId, c.get("userId"))) });
+  const row = await findOwned((where) => db.query.events.findFirst({ where }), events.id, events.userId, c.req.param("id"), c.get("userId"));
   if (!row) return c.json({ error: "not found" }, 404);
   return c.json({ event: row });
 });
@@ -54,7 +55,7 @@ app.patch("/:id", async (c) => {
   const db = createDb(c.env.DB);
   const userId = c.get("userId");
   const id = c.req.param("id");
-  const existing = await db.query.events.findFirst({ where: and(eq(events.id, id), eq(events.userId, userId)) });
+  const existing = await findOwned((where) => db.query.events.findFirst({ where }), events.id, events.userId, id, userId);
   if (!existing) return c.json({ error: "not found" }, 404);
 
   const [row] = await db
@@ -69,7 +70,7 @@ app.delete("/:id", async (c) => {
   const db = createDb(c.env.DB);
   const userId = c.get("userId");
   const id = c.req.param("id");
-  const existing = await db.query.events.findFirst({ where: and(eq(events.id, id), eq(events.userId, userId)) });
+  const existing = await findOwned((where) => db.query.events.findFirst({ where }), events.id, events.userId, id, userId);
   if (!existing) return c.json({ error: "not found" }, 404);
 
   // Cascades to the event's tasks (see schema.ts) — an event's tasks don't

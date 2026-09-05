@@ -13,18 +13,22 @@ threat model in `docs/THREAT-MODEL.md`.
 ## Suggested order
 
 1. **Tests on the security-critical pure logic** — value 9, risk 1. Raised
-   from 8 after three real bugs surfaced in review rather than in an
-   automated suite (`docs/DECISIONS.md` ADR-019/020/021: logout not
-   revoking due to a cookie-path mismatch, the OAuth redirect breaking on a
-   subpath deploy, and a rotation race that could double-mint a refresh
-   token) — each was only caught by hand-testing a running instance.
-   `lib/refreshTokens.ts` (rotation, reuse → family revocation, and now the
-   concurrent-rotation race specifically), `lib/crypto.ts` (HMAC, PKCE
+   from 8 after six real bugs surfaced across two review passes rather than
+   in an automated suite (`docs/DECISIONS.md` ADR-019 through ADR-024:
+   logout not revoking due to a cookie-path mismatch, the OAuth redirect
+   breaking on a subpath deploy, a rotation race that could double-mint a
+   refresh token, the redirect ignoring which origin actually signed in,
+   unbounded rate-limit table growth, and the client-side cache key having
+   the identical race as the refresh-token rotation) — every one of them was
+   only caught by hand-testing a running instance, never by re-reading the
+   code. `lib/refreshTokens.ts` (rotation, reuse → family revocation, and
+   the concurrent-rotation race specifically), `lib/crypto.ts` (HMAC, PKCE
    challenge), `routes/validation.ts` (zod schemas, especially the `color`
-   regex), and the refresh-cookie's `Path` actually matching every route
-   that needs to read it, all have no automated tests yet — only the
-   by-hand verification recorded in `docs/THREAT-MODEL.md`. Do this before
-   Phase 2 adds enough surface area that a regression here is easy to miss.
+   regex), `lib/origins.ts` (the allow-list every origin check now shares),
+   and the refresh-cookie's `Path` actually matching every route that needs
+   to read it, all have no automated tests yet — only the by-hand
+   verification recorded in `docs/THREAT-MODEL.md`. Do this before Phase 2
+   adds enough surface area that a regression here is easy to miss.
 2. **Phase 2 — the full design's screens** — value 10, risk 4. Everything
    the Claude Design export specified, built against the live API instead of
    `INITIAL_EVENTS`/`INITIAL_TASKS` mock data: Home (overdue/next/upcoming

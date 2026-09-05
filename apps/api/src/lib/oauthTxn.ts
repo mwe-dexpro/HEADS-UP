@@ -13,6 +13,13 @@ interface OAuthTxn {
   state: string;
   nonce: string;
   codeVerifier: string;
+  /** The origin that started sign-in, validated against FRONTEND_ORIGINS at
+   * /microsoft/start (see routes/auth.ts). The callback redirects back to
+   * *this*, not to FRONTEND_ORIGINS[0] — with more than one allowed origin
+   * (a second frontend, a future Capacitor WebView origin in Phase 4),
+   * always redirecting to index 0 would silently strand anyone who signed
+   * in from a different one. See docs/DECISIONS.md ADR-022. */
+  origin: string;
 }
 
 export function setOAuthTxnCookie(c: Context, txn: OAuthTxn): void {
@@ -31,7 +38,12 @@ export function readAndClearOAuthTxnCookie(c: Context): OAuthTxn | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
-    if (typeof parsed.state === "string" && typeof parsed.nonce === "string" && typeof parsed.codeVerifier === "string") {
+    if (
+      typeof parsed.state === "string" &&
+      typeof parsed.nonce === "string" &&
+      typeof parsed.codeVerifier === "string" &&
+      typeof parsed.origin === "string"
+    ) {
       return parsed as OAuthTxn;
     }
   } catch {

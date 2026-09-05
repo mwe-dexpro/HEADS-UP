@@ -1,4 +1,5 @@
 import { cors } from "hono/cors";
+import { isAllowedOrigin } from "../lib/origins.js";
 import type { Env } from "../types.js";
 
 /**
@@ -13,10 +14,7 @@ import type { Env } from "../types.js";
  * a single middleware value rather than a factory.
  */
 export const corsMiddleware = cors({
-  origin: (origin, c) => {
-    const allowed = (c.env as Env).FRONTEND_ORIGINS.split(",").map((o) => o.trim());
-    return allowed.includes(origin) ? origin : null;
-  },
+  origin: (origin, c) => (isAllowedOrigin(c.env as Env, origin) ? origin : null),
   credentials: true,
   allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
   allowHeaders: ["Content-Type", "Authorization"],

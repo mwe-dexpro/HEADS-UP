@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { lt, sql } from "drizzle-orm";
 import type { Context } from "hono";
 import type { Db } from "../db/client.js";
 import { rateLimitBuckets } from "../db/schema.js";
@@ -25,5 +25,15 @@ export async function checkRateLimit(db: Db, key: string, limit: number, windowM
       set: { count: sql`${rateLimitBuckets.count} + 1` },
     })
     .returning({ count: rateLimitBuckets.count });
+
+  // Opportunistic cleanup: every call also drops buckets from windows
+  // before this one, for every key — not just this call's own key, so the
+  // whole table stays bounded rather than growing by one row per
+  // (ip, route, window) forever with no TTL. One extra DELETE on a route
+  // that's already rate-limited (i.e. already low-volume) is cheap; a
+  // dedicated Cron Trigger would be the next step if that traffic ever
+  // grows enough for this to matter — see docs/DECISIONS.md ADR-023.
+  await db.delete(rateLimitBuckets).where(lt(rateLimitBuckets.windowStart, windowStart));
+
   return { allowed: (row?.count ?? 0) <= limit };
 }
