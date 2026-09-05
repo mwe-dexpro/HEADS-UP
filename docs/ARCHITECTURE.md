@@ -66,22 +66,28 @@ this matches the wire format exactly with no conversion at the boundary.
    API reads back the stashed cookie, checks state matches, exchanges the
    code (+ PKCE verifier) for an ID token, verifies it (signature via
    Microsoft's JWKS, issuer/audience/nonce), finds-or-creates the user,
-   issues a refresh token family, sets the refresh cookie
-   (Path=/auth/refresh), and redirects the browser to
-   <frontend>/auth/complete#access_token=...&expires_at=...
+   issues a refresh token family, sets the refresh cookie (Path=/auth —
+   covers both /auth/refresh and /auth/logout, not just the former; see
+   ADR-019), and redirects the browser to
+   <frontend + FRONTEND_APP_PATH>/auth/complete#access_token=...&expires_at=...
+   (the path is built from FRONTEND_APP_PATH, not assumed to be the domain
+   root — see ADR-020, needed because GitHub Pages serves this app from
+   /HEADS-UP/, not /).
 4. Browser lands on /auth/complete, reads the fragment (never sent to any
    server, never logged), stores the access token in memory, strips the
    fragment from the URL.
 5. Every API call after that: Authorization: Bearer <access token>.
 6. On a 401, or proactively ~60s before expiry: POST /auth/refresh
    (credentials: include — the browser attaches the Path-scoped cookie
-   automatically) → rotates the refresh token, returns a new access token.
+   automatically) → rotates the refresh token (an atomic claim, not a
+   read-then-write — see ADR-021), returns a new access token.
 7. Sign-out: POST /auth/logout revokes the refresh token's whole family;
    the client drops its in-memory token and wipes the local cache.
 ```
 
-See `docs/DECISIONS.md` ADR-003/004/006/007/014 for why each piece of this
-is shaped the way it is, and `docs/THREAT-MODEL.md` for the STRIDE analysis
+See `docs/DECISIONS.md` ADR-003/004/006/007/014 (original design) and
+ADR-019/020/021 (fixes found in review) for why each piece of this is
+shaped the way it is, and `docs/THREAT-MODEL.md` for the STRIDE analysis
 this flow is answering.
 
 ## Where things live
@@ -146,9 +152,10 @@ account access:
    wrangler secret put JWT_SIGNING_KEY
    wrangler secret put REFRESH_TOKEN_PEPPER   # any 32+ random bytes, base64
    ```
-5. Update `wrangler.toml`'s `API_BASE_URL` and `FRONTEND_ORIGINS` to the
-   real deployed values, and the repository variable `API_BASE_URL` (used
-   by `pages.yml`) to match.
+5. Update `wrangler.toml`'s `API_BASE_URL`, `FRONTEND_ORIGINS`, and
+   `FRONTEND_APP_PATH` to the real deployed values (the last one has to
+   match `VITE_BASE_PATH` in `pages.yml` — see ADR-020), and the repository
+   variable `API_BASE_URL` (used by `pages.yml`) to match.
 6. Add the repo secret `CLOUDFLARE_API_TOKEN` (Workers Scripts:Edit,
    D1:Edit) so `api-deploy.yml` can deploy.
 7. Enable GitHub Pages: Settings → Pages → Source: GitHub Actions (the

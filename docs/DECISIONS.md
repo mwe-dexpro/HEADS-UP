@@ -242,3 +242,84 @@ across them matters. Neither is true yet.
 *Reconsider if:* the number of workspaces or the team grows enough that
 `npm run build:web` cascading to type-check `packages/shared` on every
 invocation actually costs noticeable time.
+
+---
+
+### 019 — Refresh cookie scoped to `/auth`, not `/auth/refresh`
+**Accepted, fixing a real bug found in review.** The cookie was originally
+`Path=/auth/refresh`, on the reasoning that it should reach nothing but the
+one route that reads it. That reasoning was too narrow: a cookie's `Path`
+attribute governs which requests the *browser* attaches it to, and
+`/auth/logout` is not "at or under" `/auth/refresh` — so the cookie was
+never sent to logout, `getCookie` there always returned `undefined`, and
+`/auth/logout` could set `Set-Cookie: ...Max-Age=0` (clearing the browser's
+copy) while never calling `revokeFamilyForToken` at all. A stolen refresh
+token remained valid for its full 30-day life regardless of the user
+signing out.
+
+Fixed by widening the `Path` to `/auth`, which still excludes every data
+route (`/events`, `/tasks`, `/lists`) — the actual security goal — while
+covering both `/auth/refresh` and `/auth/logout`.
+
+*Verified*: seeded a known refresh token directly in D1, called
+`POST /auth/logout` with it as the cookie, and confirmed the row's
+`revoked_at` was set afterward — not just that the response looked right.
+
+---
+
+### 020 — OAuth callback redirect path comes from `FRONTEND_APP_PATH`, not a hardcoded root path
+**Accepted, fixing a real bug found in review.** The callback built its
+post-sign-in redirect as `new URL(FRONTEND_ORIGINS[0])` with
+`pathname = "/auth/complete"` — a root-relative path. `FRONTEND_ORIGINS` is
+(and must stay) origin-only, because it's also compared against the
+browser's `Origin` header for CORS/CSRF checks, and that header never
+carries a path. But GitHub Pages serves a project site from `/HEADS-UP/`,
+not the domain root (see ADR-010), so the hardcoded path pointed at
+`https://mwe-dexpro.github.io/auth/complete` — outside the deployed app
+entirely — while the real route lives at
+`https://mwe-dexpro.github.io/HEADS-UP/auth/complete`. Sign-in would
+complete on Microsoft's side and then redirect into a 404, or onto whatever
+(if anything) happens to be served from that org's account root.
+
+Fixed by adding a separate `FRONTEND_APP_PATH` var (`wrangler.toml`, kept in
+sync with `VITE_BASE_PATH` in `pages.yml`) used only to build this one
+redirect's path — `FRONTEND_ORIGINS` is untouched and stays origin-only.
+
+*Cost:* one more piece of config to keep in sync with the frontend's actual
+deploy path if it ever changes. Cheap, and the alternative (deriving it from
+something else) would have to hardcode the same assumption somewhere else.
+
+---
+
+### 021 — Refresh-token rotation is a compare-and-swap, not a read-then-write
+**Accepted, fixing a real bug found in review.** The original rotation read
+the token row, checked `revokedAt`, and — in a *separate* statement —
+updated it to revoked and minted a replacement. Two requests presenting the
+same still-valid token at nearly the same instant could both pass the
+`revokedAt` check before either write landed, and both mint a new token from
+the same rotation: exactly the double-use the whole family/rotation scheme
+(ADR-006) exists to catch, arriving via a race instead of a deliberate
+replay, and silently defeating the reuse detection rather than triggering
+it.
+
+Fixed with a single atomic statement: `UPDATE ... SET revoked_at = ... WHERE
+id = ? AND revoked_at IS NULL RETURNING *`. D1/SQLite serializes writes to a
+database, so of two concurrent attempts exactly one claims the row (gets a
+row back) and the other gets none — and getting none is now treated the
+same as an explicit replay: the whole family is revoked.
+
+*Cost, deliberately accepted:* this also punishes the *innocent* double-use
+case — two tabs of the same legitimate session refreshing within the same
+race window — by killing that session's family too, forcing a fresh
+sign-in. That is the standard trade-off industry rotation-with-detection
+implementations make (a grace-period exception for near-simultaneous
+legitimate retries is the usual refinement, and is real added complexity of
+its own); not built here — see `docs/ROADMAP.md` if this proves to bite in
+practice.
+
+*Verified*: seeded a fresh refresh token and fired two truly concurrent
+`POST /auth/refresh` requests presenting it. One received a new access
+token, the other got `401 invalid refresh token`, and a direct D1 query
+afterward showed *both* rows in that family — the loser's original token and
+the winner's freshly-minted replacement — with `revoked_at` set on both,
+confirming no live token survived the race on either side.

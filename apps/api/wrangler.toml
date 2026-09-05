@@ -23,6 +23,11 @@ API_BASE_URL = "https://heads-up-api.<your-subdomain>.workers.dev"
 # Exact origin(s) allowed to call this API — CSRF/CORS allow-list.
 # No wildcards: this is a security boundary, not a convenience default.
 FRONTEND_ORIGINS = "https://mwe-dexpro.github.io"
+# The path the SPA is served under — GitHub Pages serves a project site
+# from /<repo>/, so this is /HEADS-UP/, not "/". Used only to build the
+# OAuth callback's redirect target (see src/routes/auth.ts) — keep this in
+# sync with VITE_BASE_PATH in .github/workflows/pages.yml.
+FRONTEND_APP_PATH = "/HEADS-UP/"
 
 # Local development overrides — `wrangler dev` reads this automatically.
 # Real per-environment values, not committed: see .dev.vars.example.

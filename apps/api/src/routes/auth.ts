@@ -22,17 +22,24 @@ function redirectUri(env: Env): string {
   return `${env.API_BASE_URL}/auth/microsoft/callback`;
 }
 
+// Path=/auth — not /auth/refresh. It was scoped to just /auth/refresh
+// originally, which is narrower but wrong: a cookie's Path attribute only
+// covers requests whose path is *at or under* it, so a cookie scoped to
+// /auth/refresh is never sent to /auth/logout, and logout could never
+// revoke the token it just read as undefined (see docs/DECISIONS.md
+// ADR-019). /auth still excludes every data route (/events, /tasks,
+// /lists), which was the actual security goal.
+const REFRESH_COOKIE_PATH = "/auth";
+
 function setRefreshCookie(c: Context, token: string): void {
-  // Path scoped to exactly this one endpoint — the cookie is never attached
-  // to /events, /tasks, etc., so a leaked request log or a compromised data
-  // route can't expose it. SameSite=None is required because the SPA
-  // (GitHub Pages) and this API (Workers) are different origins; the Origin
-  // check in requireTrustedOrigin is what actually stops cross-site misuse.
+  // SameSite=None is required because the SPA (GitHub Pages) and this API
+  // (Workers) are different origins; the Origin check in
+  // requireTrustedOrigin is what actually stops cross-site misuse.
   setCookie(c, REFRESH_COOKIE_NAME, token, {
     httpOnly: true,
     secure: true,
     sameSite: "None",
-    path: "/auth/refresh",
+    path: REFRESH_COOKIE_PATH,
     maxAge: 60 * 60 * 24 * 30,
   });
 }
@@ -89,8 +96,16 @@ auth.get("/microsoft/callback", async (c) => {
     // than a cookie — fragments aren't sent to the server on subsequent
     // requests or logged by intermediaries, and the SPA route that reads it
     // stores it in memory only and then drops it from the URL immediately.
+    //
+    // The path is built from FRONTEND_APP_PATH, not hardcoded to "/auth/complete"
+    // — FRONTEND_ORIGINS is origin-only (it has to be: it's compared against
+    // the browser's Origin header, which never includes a path) and GitHub
+    // Pages serves a project site from a subpath (/HEADS-UP/), so a
+    // hardcoded root-relative path would 404 there. See docs/DECISIONS.md
+    // ADR-020.
     const redirect = new URL(c.env.FRONTEND_ORIGINS.split(",")[0]);
-    redirect.pathname = "/auth/complete";
+    const appPath = c.env.FRONTEND_APP_PATH.replace(/\/+$/, "");
+    redirect.pathname = `${appPath}/auth/complete`;
     redirect.hash = `access_token=${encodeURIComponent(token)}&expires_at=${expiresAt}`;
     return c.redirect(redirect.toString(), 302);
   } catch (err) {
@@ -109,7 +124,7 @@ auth.post("/refresh", requireTrustedOrigin, async (c) => {
 
   const result = await rotateRefreshToken(db, c.env.REFRESH_TOKEN_PEPPER, presented);
   if (!result.ok) {
-    deleteCookie(c, REFRESH_COOKIE_NAME, { path: "/auth/refresh" });
+    deleteCookie(c, REFRESH_COOKIE_NAME, { path: REFRESH_COOKIE_PATH });
     return c.json({ error: "invalid refresh token" }, 401);
   }
 
@@ -126,7 +141,7 @@ auth.post("/logout", requireTrustedOrigin, async (c) => {
   if (presented) {
     await revokeFamilyForToken(createDb(c.env.DB), c.env.REFRESH_TOKEN_PEPPER, presented);
   }
-  deleteCookie(c, REFRESH_COOKIE_NAME, { path: "/auth/refresh" });
+  deleteCookie(c, REFRESH_COOKIE_NAME, { path: REFRESH_COOKIE_PATH });
   return c.json({ ok: true });
 });
 

@@ -28,13 +28,21 @@ Microsoft identity platform — external trusted IdP, reached only during sign-i
 |---|---|---|
 | Stolen/forged access token | Signed (ES256), 15 min TTL, verified server-side on every request (signature + issuer + audience) | `lib/jwt.ts`, `middleware/auth.ts` |
 | Replayed refresh token | Rotation + family revocation: a replayed (already-rotated-out) token revokes the whole family | `lib/refreshTokens.ts`, ADR-006 |
+| Two requests racing the same still-valid refresh token both minting a new one (defeating reuse detection via timing rather than an explicit replay) | Rotation is an atomic `UPDATE ... WHERE revoked_at IS NULL RETURNING *`, not a read-then-write; the request that finds zero rows lost the race and its family is revoked exactly as for an explicit replay | `lib/refreshTokens.ts`, ADR-021 — **found in review, not designed in originally** |
 | Forged Microsoft IdP response | `state` checked against the stashed cookie; ID token signature verified against Microsoft's live JWKS; `nonce`, `iss` (tenant-matched), `aud` all checked before a session is created | `lib/microsoft.ts`, `routes/auth.ts` |
 | CSRF on cookie-authenticated routes | Explicit `Origin` allow-list check, independent of CORS | `middleware/trustedOrigin.ts`, ADR-014 |
+| A signed-out user's refresh token remaining valid (stale credential) | `/auth/logout` revokes the presented token's whole family | `routes/auth.ts`, ADR-019 — **found in review**: the cookie was originally scoped to `Path=/auth/refresh`, which the browser never attaches to `/auth/logout` — so logout cleared the browser's cookie but never actually revoked anything server-side, silently. Fixed by widening the scope to `/auth` |
 
 **Verified, not just designed**: a replayed refresh token was tested by hand
 against a running instance and confirmed to 401 and force re-authentication
-rather than silently succeeding (see `docs/ROADMAP.md` — a scripted
-regression test for this is still open work).
+rather than silently succeeding. The logout fix above was verified the same
+way — seeded a known token, called logout, then queried D1 directly and
+confirmed `revoked_at` was actually set, rather than trusting the 200
+response. The rotation-race fix was verified by firing two genuinely
+concurrent refresh requests at a running instance and confirming exactly one
+succeeded while a direct D1 query showed both the loser's and the winner's
+tokens revoked. (A scripted regression suite for all three is still open
+work — see `docs/ROADMAP.md`.)
 
 ### Tampering
 

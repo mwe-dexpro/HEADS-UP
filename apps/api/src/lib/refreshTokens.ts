@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { Db } from "../db/client.js";
 import { refreshTokens } from "../db/schema.js";
 import { hmacSha256Hex, randomToken } from "./crypto.js";
@@ -50,14 +50,39 @@ export async function rotateRefreshToken(db: Db, pepper: string, presentedRawTok
     return { ok: false, reason: "invalid" };
   }
   if (row.revokedAt) {
-    // This exact token was already rotated out once before — reuse. Revoke
-    // the whole family; whoever holds it next (legitimate or not) has to
-    // sign in again.
+    // This exact token was already rotated out before this request even
+    // started — reuse. Revoke the whole family; whoever holds it next
+    // (legitimate or not) has to sign in again.
     await revokeFamily(db, row.familyId);
     return { ok: false, reason: "reused" };
   }
 
-  await db.update(refreshTokens).set({ revokedAt: new Date().toISOString() }).where(eq(refreshTokens.id, row.id));
+  // Atomic compare-and-swap, not a plain UPDATE: the SELECT above and this
+  // UPDATE are two separate statements, so two concurrent requests
+  // presenting the *same* token could otherwise both pass the revokedAt
+  // check above and both mint a new token from it — exactly the double-use
+  // this whole scheme exists to catch, just via a race instead of a
+  // deliberate replay (see docs/DECISIONS.md ADR-021). Conditioning the
+  // UPDATE on `revoked_at IS NULL` makes only one of the two concurrent
+  // writes actually claim the row; D1/SQLite serializes writes to a
+  // database, so exactly one of two racing UPDATEs returns a row and the
+  // other returns none.
+  const [claimed] = await db
+    .update(refreshTokens)
+    .set({ revokedAt: new Date().toISOString() })
+    .where(and(eq(refreshTokens.id, row.id), isNull(refreshTokens.revokedAt)))
+    .returning();
+
+  if (!claimed) {
+    // Lost the race — someone else (another request, legitimate or not)
+    // claimed this token first. Treated the same as an explicit replay:
+    // conservative, and it's the standard trade-off for rotation-with-
+    // detection (a genuine double-tab reload racing itself pays the same
+    // cost as an attacker would — see ADR-021's stated consequence).
+    await revokeFamily(db, row.familyId);
+    return { ok: false, reason: "reused" };
+  }
+
   const rawToken = await issueTokenRow(db, pepper, row.userId, row.familyId);
   return { ok: true, rawToken, userId: row.userId };
 }
