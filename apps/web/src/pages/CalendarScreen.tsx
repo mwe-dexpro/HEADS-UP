@@ -1,6 +1,6 @@
 import type { EventRecord, EventsListResponse, List, ListsListResponse, TaskRecord, TasksListResponse } from "@heads-up/shared";
 import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { apiJson } from "../api/client";
 import { getCached, setCached } from "../cache/secureCache";
 import {
@@ -20,6 +20,9 @@ import {
   weekdayShortLabels,
 } from "../lib/calendarView";
 import { Icon } from "../components/Icon";
+import { Toast, type ToastState } from "../components/Toast";
+import { createTaskActions } from "../lib/taskActions";
+import { TaskDetailScreen } from "./TaskDetailScreen";
 
 const TASKS_CACHE_KEY = "tasks";
 const EVENTS_CACHE_KEY = "events";
@@ -106,13 +109,14 @@ function CalHeader({ label, onPrev, onNext, onToday }: CalHeaderProps) {
 interface AgendaItemCardProps {
   item: CalendarItem;
   listsById: Map<string, List>;
+  onOpenTask: (taskId: string) => void;
 }
 
-function AgendaItemCard({ item, listsById }: AgendaItemCardProps) {
+function AgendaItemCard({ item, listsById, onOpenTask }: AgendaItemCardProps) {
   const list = item.listId ? listsById.get(item.listId) : undefined;
   const isEvent = item.kind === "event";
   return (
-    <div className="agenda-card">
+    <div className="agenda-card" style={isEvent ? undefined : { cursor: "pointer" }} onClick={isEvent ? undefined : () => onOpenTask(item.id)}>
       <div className="agenda-row-time">
         {item.allDay ? <span className="d">All day</span> : <span className="t">{formatClock(item.startMinutes!)}</span>}
       </div>
@@ -136,16 +140,17 @@ interface AgendaListProps {
   items: CalendarItem[];
   listsById: Map<string, List>;
   now: Date;
+  onOpenTask: (taskId: string) => void;
 }
 
-function AgendaDayList({ date, items, listsById, now }: AgendaListProps) {
+function AgendaDayList({ date, items, listsById, now, onOpenTask }: AgendaListProps) {
   const dayItems = sortByTime(itemsOnDay(items, date));
   return (
     <div className="agenda">
       <div className="agenda-label">{dayGroupLabel(date, now)}</div>
       {dayItems.length === 0 && <div className="agenda-empty">Nothing scheduled</div>}
       {dayItems.map((it) => (
-        <AgendaItemCard key={`${it.kind}-${it.id}`} item={it} listsById={listsById} />
+        <AgendaItemCard key={`${it.kind}-${it.id}`} item={it} listsById={listsById} onOpenTask={onOpenTask} />
       ))}
     </div>
   );
@@ -155,12 +160,13 @@ interface AgendaViewProps {
   items: CalendarItem[];
   listsById: Map<string, List>;
   now: Date;
+  onOpenTask: (taskId: string) => void;
 }
 
 /** The flat "Agenda" sub-tab — every item across all time, grouped by day.
  * Unlike Day/3-Day/Week/Month, it has no anchor to page through: it's meant
  * to be an at-a-glance scroll of everything ahead (and behind). */
-function AgendaView({ items, listsById, now }: AgendaViewProps) {
+function AgendaView({ items, listsById, now, onOpenTask }: AgendaViewProps) {
   const byKey = new Map<number, CalendarItem[]>();
   for (const it of items) {
     const key = it.date.getTime();
@@ -179,7 +185,7 @@ function AgendaView({ items, listsById, now }: AgendaViewProps) {
         <div key={g.date.getTime()} className="agenda-group">
           <div className="agenda-label">{dayGroupLabel(g.date, now)}</div>
           {g.items.map((it) => (
-            <AgendaItemCard key={`${it.kind}-${it.id}`} item={it} listsById={listsById} />
+            <AgendaItemCard key={`${it.kind}-${it.id}`} item={it} listsById={listsById} onOpenTask={onOpenTask} />
           ))}
         </div>
       ))}
@@ -240,13 +246,14 @@ interface TimeGridProps {
   items: CalendarItem[];
   listsById: Map<string, List>;
   now: Date;
+  onOpenTask: (taskId: string) => void;
 }
 
 /** The Day/3-Day/Week hour-by-hour grid. Auto-scrolling to the current time
  * on mount is intentionally out of scope for this slice — the page scrolls
  * naturally (see design/base.css's header comment on responsiveness), and
  * the fixed 8am–8pm range already covers most of a normal day. */
-function TimeGrid({ days, items, listsById, now }: TimeGridProps) {
+function TimeGrid({ days, items, listsById, now, onOpenTask }: TimeGridProps) {
   const hours = Array.from({ length: GRID_HOUR_END - GRID_HOUR_START }, (_, i) => GRID_HOUR_START + i);
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const cols = `40px repeat(${days.length}, 1fr)`;
@@ -278,7 +285,8 @@ function TimeGrid({ days, items, listsById, now }: TimeGridProps) {
                 <div
                   key={`${it.kind}-${it.id}`}
                   className={"tg-allday-chip" + (it.kind === "task" ? " task" : "")}
-                  style={taskStyle(it)}
+                  style={{ ...taskStyle(it), cursor: it.kind === "task" ? "pointer" : undefined }}
+                  onClick={it.kind === "task" ? () => onOpenTask(it.id) : undefined}
                 >
                   {it.name}
                 </div>
@@ -319,8 +327,10 @@ function TimeGrid({ days, items, listsById, now }: TimeGridProps) {
                   style={{
                     top: ((it.startMinutes - GRID_HOUR_START * 60) / 60) * GRID_HOUR_HEIGHT,
                     height: GRID_HOUR_HEIGHT - 4,
+                    cursor: it.kind === "task" ? "pointer" : undefined,
                     ...taskStyle(it),
                   }}
+                  onClick={it.kind === "task" ? () => onOpenTask(it.id) : undefined}
                 >
                   <span className="tg-event-name">{it.name}</span>
                   <span className="tg-event-time">{formatClock(it.startMinutes)}</span>
@@ -340,10 +350,9 @@ function TimeGrid({ days, items, listsById, now }: TimeGridProps) {
  * design prototype's mock data (see docs/ROADMAP.md's Phase 2 list, and
  * design/project/calendar-view.jsx for the prototype this ports).
  *
- * Deliberately view-only for this first slice, matching Home's own
- * narrower-on-purpose precedent: tapping an event or task is a no-op until
- * Event/Task Detail land, so there's nothing here to edit yet — just time
- * navigation, the sub-view switch, and the item-type filter.
+ * Deliberately view-only for events, matching Home's own narrower-on-purpose
+ * precedent: tapping an event is still a no-op until Event Detail lands.
+ * Tapping a task opens Task Detail (see ./TaskDetailScreen), same as Home.
  */
 export function CalendarScreen() {
   const [events, setEvents] = useState<EventRecord[]>([]);
@@ -352,6 +361,9 @@ export function CalendarScreen() {
   const [loaded, setLoaded] = useState(false);
   const [offline, setOffline] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [openTaskId, setOpenTaskId] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastState | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const [subView, setSubView] = useState<CalendarSubView>("week");
   const [itemFilter, setItemFilter] = useState<CalendarItemFilter>("all");
@@ -397,6 +409,36 @@ export function CalendarScreen() {
   const listsById = new Map(lists.map((l) => [l.id, l]));
   const items = buildCalendarItems(events, tasks, itemFilter);
 
+  function showToast(message: string, onUndo?: () => void) {
+    clearTimeout(toastTimer.current);
+    setToast({ message, onUndo });
+    toastTimer.current = setTimeout(() => setToast(null), 7000);
+  }
+
+  const taskActions = createTaskActions({ setTasks, setError, showToast, dismissToast: () => setToast(null) });
+
+  const openTask = openTaskId ? tasks.find((t) => t.id === openTaskId) : undefined;
+  if (openTask) {
+    const eventsById = new Map(events.map((e) => [e.id, e]));
+    return (
+      <>
+        <TaskDetailScreen
+          task={openTask}
+          event={openTask.eventId ? eventsById.get(openTask.eventId) : undefined}
+          list={openTask.listId ? listsById.get(openTask.listId) : undefined}
+          now={now}
+          onBack={() => setOpenTaskId(null)}
+          onToggleDone={(t) => void taskActions.toggleDone(t)}
+          onDelete={(t) => void taskActions.deleteTask(t)}
+          onSetPriority={(t, p) => void taskActions.setPriority(t, p)}
+          onAddReminder={(t, label) => void taskActions.addReminder(t, label)}
+          onRemoveReminder={(t, id) => void taskActions.removeReminder(t, id)}
+        />
+        <Toast toast={toast} />
+      </>
+    );
+  }
+
   function goToday() {
     setAnchor(today);
     setSelectedDate(today);
@@ -421,7 +463,7 @@ export function CalendarScreen() {
         {tabsRow}
         {filterRow}
         {subView === "agenda" ? (
-          <AgendaView items={items} listsById={listsById} now={now} />
+          <AgendaView items={items} listsById={listsById} now={now} onOpenTask={setOpenTaskId} />
         ) : (
           <>
             <CalHeader
@@ -433,14 +475,15 @@ export function CalendarScreen() {
             {subView === "month" ? (
               <>
                 <MonthGrid anchor={anchor} items={items} listsById={listsById} selectedDate={selectedDate} onSelect={setSelectedDate} now={now} />
-                <AgendaDayList date={selectedDate} items={items} listsById={listsById} now={now} />
+                <AgendaDayList date={selectedDate} items={items} listsById={listsById} now={now} onOpenTask={setOpenTaskId} />
               </>
             ) : (
-              <TimeGrid days={viewDays(subView, anchor)!} items={items} listsById={listsById} now={now} />
+              <TimeGrid days={viewDays(subView, anchor)!} items={items} listsById={listsById} now={now} onOpenTask={setOpenTaskId} />
             )}
           </>
         )}
       </div>
+      <Toast toast={toast} />
     </div>
   );
 }

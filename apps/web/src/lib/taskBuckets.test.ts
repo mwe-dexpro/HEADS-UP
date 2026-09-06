@@ -1,6 +1,6 @@
-import type { TaskRecord } from "@heads-up/shared";
+import type { Reminder, TaskRecord } from "@heads-up/shared";
 import { describe, expect, it } from "vitest";
-import { bucketTask, REMINDER_PRESETS } from "./taskBuckets";
+import { bucketTask, reminderDateLabel, reminderLabel, REMINDER_PRESETS } from "./taskBuckets";
 
 const NOW = new Date(2026, 7, 18, 9, 30); // Tue, Aug 18 2026, 9:30 AM local
 
@@ -108,5 +108,57 @@ describe("REMINDER_PRESETS", () => {
     expect(at.getHours()).toBe(8);
     expect(at.getMinutes()).toBe(0);
     expect(at.getDate()).toBe(new Date(dueAt).getDate());
+  });
+});
+
+describe("reminderLabel / reminderDateLabel", () => {
+  const dueAt = "2026-08-22T14:00:00.000Z";
+
+  function reminder(overrides: Partial<Reminder>): Reminder {
+    return { id: "r1", taskId: "t1", kind: "before_due", minutesBefore: null, at: null, ...overrides };
+  }
+
+  it("matches a before_due reminder back to its preset", () => {
+    const t = task({ dueAt });
+    const r = reminder({ kind: "before_due", minutesBefore: 60 });
+    expect(reminderLabel(t, r)).toBe("1 hour before");
+  });
+
+  it("matches an absolute reminder back to 'Morning of'", () => {
+    const t = task({ dueAt });
+    const morningOf = REMINDER_PRESETS.find((p) => p.label === "Morning of")!.toInput(dueAt);
+    const r = reminder({ kind: "absolute", at: morningOf.at });
+    expect(reminderLabel(t, r)).toBe("Morning of");
+  });
+
+  it("falls back to a generic label when nothing matches (e.g. a custom time)", () => {
+    const t = task({ dueAt });
+    const r = reminder({ kind: "absolute", at: "2026-08-20T09:15:00.000Z" });
+    expect(reminderLabel(t, r)).toBe("Reminder");
+  });
+
+  it("falls back to a generic label when the task has no due date at all", () => {
+    const t = task({ dueAt: null });
+    const r = reminder({ kind: "before_due", minutesBefore: 60 });
+    expect(reminderLabel(t, r)).toBe("Reminder");
+  });
+
+  it("formats a before_due reminder's actual fire time, offset from dueAt", () => {
+    const t = task({ dueAt: "2026-08-22T14:00:00" }); // local time, like bucketTask's own tests
+    const r = reminder({ kind: "before_due", minutesBefore: 60 });
+    expect(reminderDateLabel(t, r)).toBe("Aug 22 · 1:00 PM");
+  });
+
+  it("formats an absolute reminder's fire time directly from its own `at`", () => {
+    const t = task({ dueAt: null });
+    const at = "2026-08-20T08:00:00";
+    const r = reminder({ kind: "absolute", at });
+    expect(reminderDateLabel(t, r)).toBe("Aug 20 · 8:00 AM");
+  });
+
+  it("is null when a before_due reminder has no dueAt to offset from", () => {
+    const t = task({ dueAt: null });
+    const r = reminder({ kind: "before_due", minutesBefore: 60 });
+    expect(reminderDateLabel(t, r)).toBeNull();
   });
 });

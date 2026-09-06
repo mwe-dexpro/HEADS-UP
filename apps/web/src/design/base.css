@@ -126,6 +126,7 @@ body {
   overflow: hidden;
   padding: 14px 16px 18px;
   box-shadow: var(--shadow-1);
+  cursor: pointer;
 }
 
 .task-row.overdue {
@@ -539,6 +540,118 @@ body {
   margin: 0;
   max-width: 280px;
   line-height: 1.4;
+}
+
+.detail-header {
+  padding: 8px 20px 16px;
+  flex: none;
+}
+
+.detail-header .back {
+  margin-bottom: 14px;
+}
+
+.event-title {
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -0.48px;
+  text-wrap: pretty;
+  margin: 10px 0 6px;
+}
+
+.event-link-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--white);
+  border-radius: 18px;
+  padding: 10px 16px;
+  margin-top: 12px;
+  box-shadow: var(--shadow-1);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.event-link-chip-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.event-link-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.event-link-chip-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 450;
+  color: var(--slate);
+}
+
+.list-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.editing-banner {
+  margin: 0 24px 4px;
+  padding: 10px 16px;
+  border-radius: 16px;
+  border: 1.5px dashed var(--signal-orange);
+  color: var(--clay-brown);
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reminder-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--white);
+  border-radius: 16px;
+  padding: 12px 16px;
+  box-shadow: var(--shadow-1);
+}
+
+.reminder-row + .reminder-row {
+  margin-top: 8px;
+}
+
+.reminder-row .label {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reminder-row .label .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal-orange);
+}
+
+.reminder-date {
+  font-size: 13px;
+  font-weight: 450;
+  color: var(--slate);
 }
 
 .toast-card button {

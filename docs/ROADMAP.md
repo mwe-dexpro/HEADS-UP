@@ -58,12 +58,21 @@ logic, and a CI check gate that runs them (see below).
    standalone-only until Events/Lists exist to link against.
    **The calendar is done** too: Day/3-Day/Week/Month/Agenda, the
    All/Events/To-dos filter, and a bottom tab bar (Home/Calendar) to reach
-   it, also against the live API. View-only for this slice, matching Home's
-   own precedent — tapping an event or task is a no-op until Event/Task
-   Detail land, and overlapping same-time items aren't laid out
-   side-by-side (the prototype it ports doesn't do that either). The rest
-   of Phase 2's screens — event/task detail and the Lists tab — are still
-   open.
+   it, also against the live API. View-only for events for this slice,
+   matching Home's own precedent — tapping an event is a no-op until Event
+   Detail lands — and overlapping same-time items aren't laid out
+   side-by-side (the prototype it ports doesn't do that either).
+   **Task Detail is done**: tapping a task from either Home or Calendar
+   opens it — priority, reminders (add/remove against the live
+   whole-array-replace API), the linked event/list chip, and delete/mark-done
+   with the same undo-toast pattern as everywhere else. Narrower than the
+   prototype on purpose, same precedent: the linked event/list chip doesn't
+   navigate anywhere yet (Event Detail and the Lists tab don't exist), there's
+   no custom-reminder-time picker, and recurring tasks don't get the "this
+   occurrence or the whole series?" dialog — the API has no concept of a
+   recurrence occurrence at all, so delete always deletes the whole task.
+   The rest of Phase 2's screens — Event Detail and the Lists tab — are
+   still open.
 3. **Real icons and a proper PWA manifest** — value 4, risk 1. The manifest
    currently ships an empty `icons: []` and there's no favicon — placeholder
    gaps left honestly rather than faked, waiting on Phase 2's actual visual

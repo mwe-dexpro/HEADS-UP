@@ -3,7 +3,7 @@
 // docs/ROADMAP.md's Phase-2 Home item and the project's convention of
 // testing pure logic files rather than components).
 
-import type { ReminderInput, TaskRecord } from "@heads-up/shared";
+import type { Reminder, ReminderInput, TaskRecord } from "@heads-up/shared";
 
 export type TaskBucket = "overdue" | "next3" | "nextweek" | "upcoming" | "done" | null;
 
@@ -33,14 +33,14 @@ function hasTimeComponent(d: Date): boolean {
   return d.getHours() !== 0 || d.getMinutes() !== 0;
 }
 
-function formatTime(d: Date): string {
+export function formatTime(d: Date): string {
   const h24 = d.getHours();
   const suffix = h24 >= 12 ? "PM" : "AM";
   const h = h24 % 12 === 0 ? 12 : h24 % 12;
   return `${h}:${String(d.getMinutes()).padStart(2, "0")} ${suffix}`;
 }
 
-function formatShortDate(d: Date): string {
+export function formatShortDate(d: Date): string {
   return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
 
@@ -93,3 +93,35 @@ export const REMINDER_PRESETS: ReminderPreset[] = [
   },
   { label: "1 hour before", toInput: () => ({ kind: "before_due", minutesBefore: 60, at: null }) },
 ];
+
+/** The preset a stored reminder was created from, for Task Detail's display
+ * — reminders themselves carry no label, just kind/minutesBefore/at, so this
+ * matches them back against what REMINDER_PRESETS would produce for this
+ * task's own dueAt. Falls back to a generic label for anything that doesn't
+ * match a preset exactly (there's no custom-time picker yet — see
+ * TaskDetailScreen). */
+export function reminderLabel(task: TaskRecord, reminder: Reminder): string {
+  if (task.dueAt) {
+    const preset = REMINDER_PRESETS.find((p) => {
+      const input = p.toInput(task.dueAt!);
+      return input.kind === reminder.kind && input.minutesBefore === reminder.minutesBefore && input.at === reminder.at;
+    });
+    if (preset) return preset.label;
+  }
+  return "Reminder";
+}
+
+/** When a reminder actually fires, formatted for display — `null` when it
+ * can't be resolved (a before_due reminder on a task with no dueAt, which
+ * shouldn't happen in practice since reminders require a due date to add). */
+export function reminderDateLabel(task: TaskRecord, reminder: Reminder): string | null {
+  let fireAt: Date | null = null;
+  if (reminder.kind === "absolute" && reminder.at) {
+    fireAt = new Date(reminder.at);
+  } else if (reminder.kind === "before_due" && task.dueAt && reminder.minutesBefore != null) {
+    fireAt = new Date(new Date(task.dueAt).getTime() - reminder.minutesBefore * 60_000);
+  }
+  if (!fireAt) return null;
+  const timeSuffix = hasTimeComponent(fireAt) ? ` · ${formatTime(fireAt)}` : "";
+  return `${formatShortDate(fireAt)}${timeSuffix}`;
+}
