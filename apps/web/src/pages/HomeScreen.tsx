@@ -185,7 +185,7 @@ export function HomeScreen() {
     }
   }
 
-  if (!loaded) return <main className="app-shell screen" />;
+  if (!loaded) return <div className="screen" />;
 
   const now = new Date();
   const bucketed = tasks.map((t) => bucketTask(t, now));
@@ -213,7 +213,7 @@ export function HomeScreen() {
   const sectionProps = { eventsById, listsById, eventStats, onToggleTask: handleToggleTask, onToggleOpen: toggleOpen };
 
   return (
-    <main className="app-shell">
+    <>
       <div className="screen">
         <div className="topbar">
           <div>
@@ -249,11 +249,11 @@ export function HomeScreen() {
             <HomeSection id="nextweek" dot="var(--slate)" label="Next week" items={nextweek} collapsible open={open.nextweek} {...sectionProps} />
             <HomeSection id="upcoming" dot="var(--dust-taupe)" label="Upcoming" items={upcoming} collapsible open={open.upcoming} {...sectionProps} />
             {doneThisWeekCount > 0 && (
-              <div style={{ padding: "18px 20px 100px", fontSize: 13, color: "var(--slate)", fontWeight: 450 }}>
+              <div style={{ padding: "18px 20px 140px", fontSize: 13, color: "var(--slate)", fontWeight: 450 }}>
                 {doneThisWeekCount} task{doneThisWeekCount > 1 ? "s" : ""} completed this week
               </div>
             )}
-            {doneThisWeekCount === 0 && <div style={{ height: 100 }} />}
+            {doneThisWeekCount === 0 && <div style={{ height: 140 }} />}
           </>
         )}
       </div>
@@ -263,6 +263,6 @@ export function HomeScreen() {
       </button>
       <AddTaskSheet show={addSheetOpen} onClose={() => setAddSheetOpen(false)} onCreate={(input) => void handleCreateTask(input)} />
       <Toast toast={toast} />
-    </main>
+    </>
   );
 }

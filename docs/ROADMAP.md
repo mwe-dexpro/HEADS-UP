@@ -55,8 +55,15 @@ logic, and a CI check gate that runs them (see below).
    empty state, per-event progress, and task creation. Narrower than the
    prototype on purpose for this first slice — no swipe gestures,
    multi-select, Zen mode, or Plan Wizard yet, and "add task" is
-   standalone-only until Events/Lists exist to link against. The rest of
-   Phase 2's screens are still open.
+   standalone-only until Events/Lists exist to link against.
+   **The calendar is done** too: Day/3-Day/Week/Month/Agenda, the
+   All/Events/To-dos filter, and a bottom tab bar (Home/Calendar) to reach
+   it, also against the live API. View-only for this slice, matching Home's
+   own precedent — tapping an event or task is a no-op until Event/Task
+   Detail land, and overlapping same-time items aren't laid out
+   side-by-side (the prototype it ports doesn't do that either). The rest
+   of Phase 2's screens — event/task detail and the Lists tab — are still
+   open.
 3. **Real icons and a proper PWA manifest** — value 4, risk 1. The manifest
    currently ships an empty `icons: []` and there's no favicon — placeholder
    gaps left honestly rather than faked, waiting on Phase 2's actual visual
