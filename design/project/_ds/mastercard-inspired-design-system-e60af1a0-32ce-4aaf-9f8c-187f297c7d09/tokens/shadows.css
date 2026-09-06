@@ -1,0 +1,6 @@
+:root{
+--shadow-0:none;
+--shadow-1:0px 4px 24px 0px rgba(0,0,0,0.04);
+--shadow-2:0px 24px 48px 0px rgba(0,0,0,0.08);
+--shadow-3:0px 70px 110px 0px rgba(0,0,0,0.25);
+}

@@ -1,0 +1,8 @@
+:root{
+--space-1:8px;--space-2:16px;--space-3:24px;--space-4:32px;--space-5:48px;--space-6:64px;--space-7:96px;--space-8:128px;
+--section-padding-desktop:128px;--section-padding-mobile:48px;
+--card-padding-desktop:40px;--card-padding-mobile:24px;
+--nav-top-margin:24px;
+--container-max:1280px;
+--container-gutter:48px;
+}

@@ -1,0 +1,17 @@
+@font-face{font-family:"Sofia Sans";src:url("https://fonts.gstatic.com/s/sofiasans/v14/EJRRQgQ7YsC53c1jzastFRVJ0kY.woff2") format("woff2");font-weight:100 1000;font-style:normal;font-display:swap;}
+:root{
+--font-primary:"Sofia Sans","MarkForMC",Arial,sans-serif;
+--font-secondary:"Sofia Sans","MarkOffcForMC",Arial,sans-serif;
+--weight-body:450;
+--weight-medium:500;
+--weight-bold:700;
+--size-h1:64px;--lh-h1:64px;--ls-h1:-1.28px;
+--size-h2:36px;--lh-h2:44px;--ls-h2:-0.72px;
+--size-h3:24px;--lh-h3:28.8px;--ls-h3:-0.48px;
+--size-h4:14px;--lh-h4:18.2px;--ls-h4:normal;/* @kind other */
+--size-eyebrow:14px;--lh-eyebrow:14px;--ls-eyebrow:0.56px;
+--size-body:16px;--lh-body:22.4px;--ls-body:normal;/* @kind other */
+--size-button:16px;--lh-button:16px;--ls-button:-0.48px;
+--size-footer-link:14px;--lh-footer-link:20px;
+--size-footer-header:13px;--lh-footer-header:14px;--ls-footer-header:0.56px;
+}
