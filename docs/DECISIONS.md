@@ -461,3 +461,34 @@ blocking merges over something unfixable by this repo.
 `@cloudflare/vitest-pool-workers` 0.16+ once that config API is documented
 and out of alpha) — re-run a full audit then, since the newer `wrangler`/
 `miniflare` versions may have already picked up fixes for some of these.
+
+---
+
+### 027 — Copilot code review requested via a workflow step, not the repo-ruleset toggle
+**Accepted.** GitHub offers two ways to get an automatic Copilot review on
+every pull request: a repository ruleset rule ("Automatically request
+Copilot code review", under Settings → Rules → Rulesets), or `gh pr edit
+--add-reviewer @copilot` (GitHub CLI ≥2.88, shipped 2026-03-11). The
+ruleset is a repository *setting* — it can't be expressed as a file in this
+repo, needs to be toggled by hand (or via the rulesets API, which needs
+repo-admin credentials this session doesn't carry), and only affects this
+one repository's config rather than being something a contributor can see
+in a diff. `.github/workflows/copilot-review.yml` runs the `gh pr edit`
+command instead, triggered on `pull_request: opened, reopened,
+ready_for_review` — same effect, but versioned alongside the rest of CI.
+
+*Cost, accepted:* requesting a Copilot review this way needs Copilot code
+review actually enabled for this repo/org (Copilot Pro, Pro+, Business, or
+Enterprise) — if it isn't, `gh pr edit --add-reviewer @copilot` errors. The
+step runs with `continue-on-error: true` for exactly that reason: a missing
+license shouldn't block every PR, it should just mean no Copilot review
+shows up (visible in the workflow's log, not silently swallowed). The same
+guard also means a fork's PR — where the default `GITHUB_TOKEN` is
+read-only regardless of this workflow's declared `permissions:` — fails
+the same harmless way instead of blocking anything.
+
+*Reconsider if:* Copilot code review ends up enabled account-wide anyway
+(the ruleset also covers `synchronize` — re-reviewing every new push —
+which this workflow deliberately does not request, to avoid asking for a
+fresh review on every commit) — the ruleset would then be one on/off
+toggle instead of a workflow to maintain.
