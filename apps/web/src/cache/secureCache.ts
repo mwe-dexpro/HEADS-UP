@@ -57,18 +57,25 @@ async function getOrCreateKey(db: IDBDatabase): Promise<CryptoKey> {
   return new Promise<CryptoKey>((resolve, reject) => {
     const tx = db.transaction(KEY_STORE, "readwrite");
     const store = tx.objectStore(KEY_STORE);
+    let result: CryptoKey;
     const getReq = store.get(KEY_RECORD_ID);
     getReq.onsuccess = () => {
       const existing = getReq.result as CryptoKey | undefined;
       if (existing) {
-        resolve(existing);
+        result = existing;
         return;
       }
       store.put(candidate, KEY_RECORD_ID);
-      resolve(candidate);
+      result = candidate;
     };
     getReq.onerror = () => reject(getReq.error);
+    // Resolve only once the write has actually committed — resolving right
+    // after store.put() would hand callers a key that a later abort (quota,
+    // storage eviction) never persisted, leaving data encrypted under a key
+    // that's gone the next time this runs.
+    tx.oncomplete = () => resolve(result);
     tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
   });
 }
 
