@@ -119,6 +119,11 @@ body {
   gap: 12px;
   background: var(--white);
   border-radius: 20px;
+  /* Clips the progress bar to this exact rounded shape (below) rather than
+     giving the 4px-tall bar its own border-radius: at that height a 20px
+     radius doesn't render as a circular arc, it gets flattened to fit —
+     which would visibly mismatch the card's actual corner curve. */
+  overflow: hidden;
   padding: 14px 16px 18px;
   box-shadow: var(--shadow-1);
 }
@@ -233,8 +238,6 @@ body {
   bottom: 0;
   height: 4px;
   background: rgba(20, 20, 19, 0.1);
-  border-radius: 0 0 20px 20px;
-  overflow: hidden;
 }
 
 .task-progress-bottom-fill {
