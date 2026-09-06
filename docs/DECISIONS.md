@@ -430,3 +430,34 @@ type-checks `src/**/*.test.ts` with those types instead; `check` runs both.
 `apps/web`'s tests use plain `vitest` (no Workers runtime needed) with
 `fake-indexeddb` polyfilling `indexedDB` for `secureCache.ts` — Node 20+'s
 own `globalThis.crypto.subtle` is used as-is, no WebCrypto polyfill needed.
+
+---
+
+### 026 — CI's `npm audit` gate is scoped to `--omit=dev`, dev-tooling audit is report-only
+**Accepted.** At the time this was added, `npm audit` on the full tree
+reported 10 vulnerabilities (4 moderate, 6 high) — all of them in
+`esbuild`, `miniflare`, `undici`, `ws`, and `sharp`, pulled in transitively
+by `wrangler` / `@cloudflare/vitest-pool-workers` / `drizzle-kit` (the
+esbuild finding is specifically about its local dev server; the rest are
+inside miniflare's local Workers-runtime simulator used only by the test
+pool from ADR-025). None of them touch a dependency that ships: `npm audit
+--omit=dev` on the same tree reports zero. Gating the merge-blocking check
+on the full tree would make CI permanently red over dev-only tooling with
+no fix available yet — the pin in ADR-025 already means neither `wrangler`
+nor `@cloudflare/vitest-pool-workers` can simply be bumped to clear it — and
+a check nobody can make pass is worse than no check (same reasoning ADR-007
+used for not requesting a permission before there's a feature to use it).
+
+Two steps instead of one: `npm audit --omit=dev --audit-level=high` blocks
+the job on anything in the deployed Worker or the built SPA bundle. A
+second, plain `npm audit` (npm's `--omit` only accepts `dev`/`optional`/
+`peer` — there's no flag for "dev-only", so this covers the full tree
+again) runs with `continue-on-error: true`; since the first step already
+proves prod is clean, whatever this one reports is exactly the dev-only
+tooling findings, surfaced in the CI log for a human to notice without
+blocking merges over something unfixable by this repo.
+
+*Reconsider if:* ADR-025's pin is ever lifted (vitest 4 /
+`@cloudflare/vitest-pool-workers` 0.16+ once that config API is documented
+and out of alpha) — re-run a full audit then, since the newer `wrangler`/
+`miniflare` versions may have already picked up fixes for some of these.
