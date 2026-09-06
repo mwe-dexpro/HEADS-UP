@@ -162,6 +162,8 @@
   background: transparent;
   padding: 0;
   font: inherit;
+  text-align: inherit;
+  color: inherit;
   -webkit-appearance: none;
   appearance: none;
   border-radius: 12px;
