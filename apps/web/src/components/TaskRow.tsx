@@ -14,12 +14,13 @@ interface TaskRowProps {
   list: List | undefined;
   eventProgress: EventProgress | undefined;
   onToggle: (bucketed: BucketedTask) => void;
+  onOpen: (bucketed: BucketedTask) => void;
 }
 
 /** One row in a Home-screen list — see design/project/app.jsx's TaskRow.
- * Tapping the row itself is a no-op for now: it would open Task Detail,
- * which doesn't exist yet (a later Phase-2 item per docs/ROADMAP.md). */
-export function TaskRow({ bucketed, event, list, eventProgress, onToggle }: TaskRowProps) {
+ * Tapping the row opens Task Detail; tapping the checkbox itself only
+ * toggles done (it stops the click from also bubbling up into onOpen). */
+export function TaskRow({ bucketed, event, list, eventProgress, onToggle, onOpen }: TaskRowProps) {
   const { task, dueLabel } = bucketed;
   const overdue = bucketed.bucket === "overdue" && !task.done;
   const highPriority = task.priority === "high" && !task.done;
@@ -30,6 +31,12 @@ export function TaskRow({ bucketed, event, list, eventProgress, onToggle }: Task
     <div
       className={"task-row" + (overdue ? " overdue" : "") + (highPriority ? " high-priority" : "")}
       style={listColor ? { boxShadow: `inset 4px 0 0 0 ${listColor}, var(--shadow-1)` } : undefined}
+      onClick={() => onOpen(bucketed)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onOpen(bucketed);
+      }}
     >
       <button
         type="button"
@@ -37,7 +44,10 @@ export function TaskRow({ bucketed, event, list, eventProgress, onToggle }: Task
         aria-checked={task.done}
         aria-label={task.done ? `Mark "${task.name}" not done` : `Mark "${task.name}" done`}
         className={"check" + (task.done ? " done" : "")}
-        onClick={() => onToggle(bucketed)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle(bucketed);
+        }}
       >
         {task.done && <Icon icon={Check} size={14} />}
       </button>

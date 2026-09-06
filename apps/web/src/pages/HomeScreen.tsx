@@ -8,7 +8,9 @@ import { AddTaskSheet } from "../components/AddTaskSheet";
 import { Icon } from "../components/Icon";
 import { TaskRow } from "../components/TaskRow";
 import { Toast, type ToastState } from "../components/Toast";
+import { createTaskActions } from "../lib/taskActions";
 import { bucketTask, type BucketedTask } from "../lib/taskBuckets";
+import { TaskDetailScreen } from "./TaskDetailScreen";
 
 const TASKS_CACHE_KEY = "tasks";
 const EVENTS_CACHE_KEY = "events";
@@ -32,13 +34,14 @@ interface HomeSectionProps {
   listsById: Map<string, List>;
   eventStats: Map<string, EventProgress>;
   onToggleTask: (bucketed: BucketedTask) => void;
+  onOpenTask: (bucketed: BucketedTask) => void;
 }
 
 /** One labeled group of task rows (Overdue / Today / Next 3 days / …). A
  * top-level component, not defined inline in HomeScreen, so its identity
  * stays stable across renders — an inline component would remount (and
  * lose any in-progress interaction) every time HomeScreen re-renders. */
-function HomeSection({ id, dot, label, dateHint, items, collapsible, open, onToggleOpen, eventsById, listsById, eventStats, onToggleTask }: HomeSectionProps) {
+function HomeSection({ id, dot, label, dateHint, items, collapsible, open, onToggleOpen, eventsById, listsById, eventStats, onToggleTask, onOpenTask }: HomeSectionProps) {
   if (items.length === 0) return null;
   const isOpen = !collapsible || open;
   return (
@@ -60,6 +63,7 @@ function HomeSection({ id, dot, label, dateHint, items, collapsible, open, onTog
               list={b.task.listId ? listsById.get(b.task.listId) : undefined}
               eventProgress={b.task.eventId ? eventStats.get(b.task.eventId) : undefined}
               onToggle={onToggleTask}
+              onOpen={onOpenTask}
             />
           ))}
         </div>
@@ -78,8 +82,9 @@ function HomeSection({ id, dot, label, dateHint, items, collapsible, open, onTog
  * Deliberately narrower than the full prototype for this first Phase-2
  * slice: no swipe gestures, multi-select, Zen mode, or Plan wizard yet,
  * and task/event linking in "add task" is standalone-only since the
- * Events and Lists screens don't exist yet. Tapping a row (rather than its
- * checkbox) is a no-op until Task Detail lands.
+ * Events and Lists screens don't exist yet. Tapping a row opens Task
+ * Detail (see ./TaskDetailScreen) — rendered in place of this screen's own
+ * content rather than through a router, since there isn't one yet.
  */
 export function HomeScreen() {
   const { state, signOut } = useAuth();
@@ -91,6 +96,7 @@ export function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<Record<string, boolean>>({ next3: true, nextweek: true, upcoming: true });
   const [addSheetOpen, setAddSheetOpen] = useState(false);
+  const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
 
@@ -137,31 +143,14 @@ export function HomeScreen() {
     setOpen((o) => ({ ...o, [id]: !o[id] }));
   }
 
-  async function handleToggleTask(bucketed: BucketedTask) {
-    const task = bucketed.task;
-    const willBeDone = !task.done;
-    const nowIso = new Date().toISOString();
-    setTasks((ts) => ts.map((t) => (t.id === task.id ? { ...t, done: willBeDone, doneAt: willBeDone ? nowIso : null } : t)));
-    try {
-      await apiJson(`/tasks/${task.id}`, { method: "PATCH", body: JSON.stringify({ done: willBeDone }) });
-    } catch (err) {
-      setTasks((ts) => ts.map((t) => (t.id === task.id ? { ...t, done: task.done, doneAt: task.doneAt } : t)));
-      setError(err instanceof Error ? err.message : "failed to update task");
-      return;
-    }
-    if (willBeDone) {
-      showToast(`"${task.name}" marked done`, () => void undoToggle(task.id, task.done, task.doneAt));
-    }
+  const taskActions = createTaskActions({ setTasks, setError, showToast, dismissToast: () => setToast(null) });
+
+  function handleToggleTask(bucketed: BucketedTask) {
+    void taskActions.toggleDone(bucketed.task);
   }
 
-  async function undoToggle(id: string, wasDone: boolean, wasDoneAt: string | null) {
-    setToast(null);
-    setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, done: wasDone, doneAt: wasDoneAt } : t)));
-    try {
-      await apiJson(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify({ done: wasDone }) });
-    } catch {
-      // Local state is already reverted for the user; the next load() reconciles with the server.
-    }
+  function handleOpenTask(bucketed: BucketedTask) {
+    setOpenTaskId(bucketed.task.id);
   }
 
   async function handleCreateTask(input: CreateTaskInput) {
@@ -191,6 +180,28 @@ export function HomeScreen() {
   const bucketed = tasks.map((t) => bucketTask(t, now));
   const eventsById = new Map(events.map((e) => [e.id, e]));
   const listsById = new Map(lists.map((l) => [l.id, l]));
+
+  const openTask = openTaskId ? tasks.find((t) => t.id === openTaskId) : undefined;
+  if (openTask) {
+    return (
+      <>
+        <TaskDetailScreen
+          task={openTask}
+          event={openTask.eventId ? eventsById.get(openTask.eventId) : undefined}
+          list={openTask.listId ? listsById.get(openTask.listId) : undefined}
+          now={now}
+          onBack={() => setOpenTaskId(null)}
+          onToggleDone={(t) => void taskActions.toggleDone(t)}
+          onDelete={(t) => void taskActions.deleteTask(t)}
+          onSetPriority={(t, p) => void taskActions.setPriority(t, p)}
+          onAddReminder={(t, label) => void taskActions.addReminder(t, label)}
+          onRemoveReminder={(t, id) => void taskActions.removeReminder(t, id)}
+        />
+        <Toast toast={toast} />
+      </>
+    );
+  }
+
   const eventStats = new Map<string, EventProgress>();
   for (const t of tasks) {
     if (!t.eventId) continue;
@@ -210,7 +221,7 @@ export function HomeScreen() {
   const doneThisWeekCount = tasks.filter((t) => t.done && t.doneAt && new Date(t.doneAt).getTime() >= oneWeekAgoMs).length;
   const isEmpty = overdue.length === 0 && today.length === 0 && next3.length === 0 && nextweek.length === 0 && upcoming.length === 0 && doneCount === 0;
 
-  const sectionProps = { eventsById, listsById, eventStats, onToggleTask: handleToggleTask, onToggleOpen: toggleOpen };
+  const sectionProps = { eventsById, listsById, eventStats, onToggleTask: handleToggleTask, onOpenTask: handleOpenTask, onToggleOpen: toggleOpen };
 
   return (
     <>
