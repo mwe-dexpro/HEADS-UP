@@ -400,3 +400,98 @@ microtask gaps but not real async ones).
 Cheap (~1ms, WebCrypto-native) and only ever happens on the very first use
 per browser profile, once a key is stored every later call finds it on the
 first `get` and returns immediately.
+
+---
+
+### 025 — Test tooling pinned to vitest 3 / `@cloudflare/vitest-pool-workers` 0.12.x, not latest
+**Accepted.** `@cloudflare/vitest-pool-workers@0.22.0` (latest at the time
+these tests were added) requires `vitest@^4.1.0` and depends on
+`miniflare@5.20260815.0-alpha` — an alpha build — and its `0.16`+ line has
+also dropped the documented `defineWorkersConfig`/`readD1Migrations` config
+API from the `/config` subpath entirely in favor of an undocumented
+`cloudflareTest`/`cloudflarePool` plugin API with no bundled README or
+examples. `@cloudflare/vitest-pool-workers@0.12.21` is the newest release
+still on the documented `/config` API, peer-depending on `vitest` `2.0.x -
+3.2.x` — installed as `vitest@^3.2.7`.
+
+*Cost:* both packages will eventually need a coordinated bump (vitest 3→4
+and vitest-pool-workers 0.12→0.16+ together) once the newer config API is
+documented and out of alpha. Until then, `npm install`ing either package to
+"latest" independently breaks the other — don't bump one without the other.
+
+*Also:* `apps/api`'s test files live inside `src/` (so imports like
+`./crypto.js` resolve the same way in tests as in the app) but are excluded
+from the main `tsconfig.json` used by `npm run check`, because typing
+`cloudflare:test`'s `env` correctly needs `@cloudflare/vitest-pool-workers`'s
+ambient types (`test/env.d.ts` augments `ProvidedEnv` with the real `Env`
+plus a `TEST_MIGRATIONS` binding), which would otherwise leak into
+production route type-checking for no benefit. A separate `test/tsconfig.json`
+type-checks `src/**/*.test.ts` with those types instead; `check` runs both.
+`apps/web`'s tests use plain `vitest` (no Workers runtime needed) with
+`fake-indexeddb` polyfilling `indexedDB` for `secureCache.ts` — Node 20+'s
+own `globalThis.crypto.subtle` is used as-is, no WebCrypto polyfill needed.
+
+---
+
+### 026 — CI's `npm audit` gate is scoped to `--omit=dev`, dev-tooling audit is report-only
+**Accepted.** At the time this was added, `npm audit` on the full tree
+reported 10 vulnerabilities (4 moderate, 6 high) — all of them in
+`esbuild`, `miniflare`, `undici`, `ws`, and `sharp`, pulled in transitively
+by `wrangler` / `@cloudflare/vitest-pool-workers` / `drizzle-kit` (the
+esbuild finding is specifically about its local dev server; the rest are
+inside miniflare's local Workers-runtime simulator used only by the test
+pool from ADR-025). None of them touch a dependency that ships: `npm audit
+--omit=dev` on the same tree reports zero. Gating the merge-blocking check
+on the full tree would make CI permanently red over dev-only tooling with
+no fix available yet — the pin in ADR-025 already means neither `wrangler`
+nor `@cloudflare/vitest-pool-workers` can simply be bumped to clear it — and
+a check nobody can make pass is worse than no check (same reasoning ADR-007
+used for not requesting a permission before there's a feature to use it).
+
+Two steps instead of one: `npm audit --omit=dev --audit-level=high` blocks
+the job on anything in the deployed Worker or the built SPA bundle. A
+second, plain `npm audit` (npm's `--omit` only accepts `dev`/`optional`/
+`peer` — there's no flag for "dev-only", so this covers the full tree
+again) runs with `continue-on-error: true`; since the first step already
+proves prod is clean, whatever this one reports is exactly the dev-only
+tooling findings, surfaced in the CI log for a human to notice without
+blocking merges over something unfixable by this repo.
+
+*Reconsider if:* ADR-025's pin is ever lifted (vitest 4 /
+`@cloudflare/vitest-pool-workers` 0.16+ once that config API is documented
+and out of alpha) — re-run a full audit then, since the newer `wrangler`/
+`miniflare` versions may have already picked up fixes for some of these.
+
+---
+
+### 027 — Copilot code review requested via the repo ruleset, not a workflow step
+**Accepted, reversing an earlier draft.** GitHub offers two ways to get an
+automatic Copilot review on every pull request: a repository ruleset rule
+("Automatically request Copilot code review", under Settings → Rules →
+Rulesets), or `gh pr edit --add-reviewer @copilot` in a workflow (GitHub
+CLI ≥2.88, shipped 2026-03-11). A first pass used the workflow — versioned
+alongside the rest of CI — but the ruleset is what GitHub itself treats as
+the supported mechanism: it also covers `synchronize` (re-review on every
+push) and draft-PR handling as first-class options, and it's where the
+review effort level (see below) actually lives — the workflow step could
+only request a review with whatever the org/repo default happened to be.
+
+Configured by hand (Settings → Code and automation → Rules → Rulesets →
+New branch ruleset → target the branches that receive PRs → enable
+"Automatically request Copilot code review"), not by this repo's code —
+rulesets need repo-admin credentials no session here carries, and there's
+no `create_repository_ruleset`-shaped tool available to script it.
+
+*Cost, accepted:* the ruleset is invisible in a diff — a contributor
+reading this repo's source won't see that Copilot review is on, unlike the
+workflow file it replaced. `docs/DECISIONS.md` (this entry) is the record
+of that setting instead.
+
+*Also:* there's no per-review "which model" knob (GPT-5 vs. Claude, etc.)
+— GitHub picks the model internally. The closest available control is the
+**review effort level** — Lite (routine changes) vs. Balanced (routes to a
+higher-reasoning model for complex, security-sensitive, or cross-service
+changes) — settable per-request in the PR's Reviewers section, or as an
+org/repo default alongside the ruleset. (Model *choice* does exist for a
+different feature — `@copilot` mentioned in a PR *comment*, which invokes
+the Copilot coding agent, not code review — and is unrelated to this ADR.)

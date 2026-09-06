@@ -8,27 +8,30 @@ build used.
 bearer access tokens), CRUD API for events/tasks/lists on D1, one live
 screen (`apps/web`'s task list) proving the full pipeline end-to-end, a
 Capacitor Android scaffold, CI for both deploy targets, and the STRIDE
-threat model in `docs/THREAT-MODEL.md`.
+threat model in `docs/THREAT-MODEL.md`. Tests on the security-critical pure
+logic, and a CI check gate that runs them (see below).
 
 ## Suggested order
 
-1. **Tests on the security-critical pure logic** — value 9, risk 1. Raised
-   from 8 after six real bugs surfaced across two review passes rather than
-   in an automated suite (`docs/DECISIONS.md` ADR-019 through ADR-024:
-   logout not revoking due to a cookie-path mismatch, the OAuth redirect
-   breaking on a subpath deploy, a rotation race that could double-mint a
-   refresh token, the redirect ignoring which origin actually signed in,
-   unbounded rate-limit table growth, and the client-side cache key having
-   the identical race as the refresh-token rotation) — every one of them was
-   only caught by hand-testing a running instance, never by re-reading the
-   code. `lib/refreshTokens.ts` (rotation, reuse → family revocation, and
-   the concurrent-rotation race specifically), `lib/crypto.ts` (HMAC, PKCE
-   challenge), `routes/validation.ts` (zod schemas, especially the `color`
-   regex), `lib/origins.ts` (the allow-list every origin check now shares),
-   and the refresh-cookie's `Path` actually matching every route that needs
-   to read it, all have no automated tests yet — only the by-hand
-   verification recorded in `docs/THREAT-MODEL.md`. Do this before Phase 2
-   adds enough surface area that a regression here is easy to miss.
+1. ~~**Tests on the security-critical pure logic**~~ **Done.** 62 tests
+   across both apps (`npm test`), covering exactly the files named below the
+   six real bugs from ADR-019 through ADR-024 were found in by hand:
+   `lib/refreshTokens.ts` (rotation, reuse → family revocation, and the
+   concurrent-rotation race specifically — reproduces ADR-021's own by-hand
+   verification steps as an assertion), `lib/crypto.ts` (HMAC, PKCE
+   challenge — including the RFC 7636 Appendix B known-answer vector),
+   `routes/validation.ts` (zod schemas, especially the `color` regex against
+   injection payloads), `lib/origins.ts` (the allow-list), the refresh
+   cookie's `Path` actually reaching both `/auth/refresh` and `/auth/logout`
+   (`routes/auth.test.ts`, reproducing ADR-019's own verification), and the
+   client-side cache key's concurrent get-or-create (`secureCache.test.ts`,
+   ADR-024). `apps/api` runs on `@cloudflare/vitest-pool-workers` against a
+   real D1 instance (migrations applied in `test/apply-migrations.ts`);
+   `apps/web` runs on plain `vitest` with `fake-indexeddb` — see
+   `docs/DECISIONS.md` ADR-025 for why the tooling is pinned where it is,
+   and `.github/workflows/ci.yml` for the CI gate that now runs both
+   `npm run check` and `npm test` on every push/PR (neither deploy workflow
+   gated on anything before this).
 2. **Phase 2 — the full design's screens** — value 10, risk 4. Everything
    the Claude Design export specified, built against the live API instead of
    `INITIAL_EVENTS`/`INITIAL_TASKS` mock data: Home (overdue/next/upcoming

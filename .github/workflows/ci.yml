@@ -1,0 +1,48 @@
+name: Check, test, and audit
+
+# Runs on every push and PR — neither deploy workflow (api-deploy.yml,
+# pages.yml) gates on this, so this is the only thing standing between a
+# broken build and main. See docs/ROADMAP.md's "tests on the
+# security-critical pure logic" item for why this exists.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run check
+      - run: npm run test
+
+      # Blocking: fails the build on a known high/critical vulnerability in
+      # anything actually shipped (the deployed Worker, the built SPA
+      # bundle). See docs/DECISIONS.md ADR-026 for why this is scoped to
+      # --omit=dev rather than the whole tree.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      # Non-blocking: npm audit has no "dev-only" filter (--omit only takes
+      # dev/optional/peer, not prod), so this covers the full tree — in
+      # practice the production audit above already proved prod is clean,
+      # so what shows up here is exactly the dev-only tooling
+      # (wrangler/miniflare/esbuild's local dev server, drizzle-kit) that
+      # sits behind the vitest 3 / vitest-pool-workers 0.12.x pin from
+      # ADR-025 and can't always be bumped independently. Surfaced here for
+      # visibility, not as a merge gate — see ADR-026.
+      - name: Audit full tree, including dev tooling (report only)
+        continue-on-error: true
+        run: npm audit
