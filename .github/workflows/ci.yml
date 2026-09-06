@@ -1,0 +1,29 @@
+name: Check and test
+
+# Runs on every push and PR — neither deploy workflow (api-deploy.yml,
+# pages.yml) gates on this, so this is the only thing standing between a
+# broken build and main. See docs/ROADMAP.md's "tests on the
+# security-critical pure logic" item for why this exists.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run check
+      - run: npm run test

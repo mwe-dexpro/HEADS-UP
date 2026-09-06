@@ -400,3 +400,33 @@ microtask gaps but not real async ones).
 Cheap (~1ms, WebCrypto-native) and only ever happens on the very first use
 per browser profile, once a key is stored every later call finds it on the
 first `get` and returns immediately.
+
+---
+
+### 025 — Test tooling pinned to vitest 3 / `@cloudflare/vitest-pool-workers` 0.12.x, not latest
+**Accepted.** `@cloudflare/vitest-pool-workers@0.22.0` (latest at the time
+these tests were added) requires `vitest@^4.1.0` and depends on
+`miniflare@5.20260815.0-alpha` — an alpha build — and its `0.16`+ line has
+also dropped the documented `defineWorkersConfig`/`readD1Migrations` config
+API from the `/config` subpath entirely in favor of an undocumented
+`cloudflareTest`/`cloudflarePool` plugin API with no bundled README or
+examples. `@cloudflare/vitest-pool-workers@0.12.21` is the newest release
+still on the documented `/config` API, peer-depending on `vitest` `2.0.x -
+3.2.x` — installed as `vitest@^3.2.7`.
+
+*Cost:* both packages will eventually need a coordinated bump (vitest 3→4
+and vitest-pool-workers 0.12→0.16+ together) once the newer config API is
+documented and out of alpha. Until then, `npm install`ing either package to
+"latest" independently breaks the other — don't bump one without the other.
+
+*Also:* `apps/api`'s test files live inside `src/` (so imports like
+`./crypto.js` resolve the same way in tests as in the app) but are excluded
+from the main `tsconfig.json` used by `npm run check`, because typing
+`cloudflare:test`'s `env` correctly needs `@cloudflare/vitest-pool-workers`'s
+ambient types (`test/env.d.ts` augments `ProvidedEnv` with the real `Env`
+plus a `TEST_MIGRATIONS` binding), which would otherwise leak into
+production route type-checking for no benefit. A separate `test/tsconfig.json`
+type-checks `src/**/*.test.ts` with those types instead; `check` runs both.
+`apps/web`'s tests use plain `vitest` (no Workers runtime needed) with
+`fake-indexeddb` polyfilling `indexedDB` for `secureCache.ts` — Node 20+'s
+own `globalThis.crypto.subtle` is used as-is, no WebCrypto polyfill needed.

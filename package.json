@@ -18,7 +18,8 @@
     "db:migrate:local": "npm run db:migrate:local -w @heads-up/api",
     "android": "npm run build:web && npx cap sync android && npx cap open android",
     "format": "prettier --write \"apps/**/*.{ts,tsx}\" \"packages/**/*.ts\" \"*.{json,md}\"",
-    "check": "npm run check -w @heads-up/web && npm run check -w @heads-up/api"
+    "check": "npm run check -w @heads-up/web && npm run check -w @heads-up/api",
+    "test": "npm run test -w @heads-up/api && npm run test -w @heads-up/web"
   },
   "devDependencies": {
     "prettier": "^3.8.1",
