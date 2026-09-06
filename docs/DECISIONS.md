@@ -464,31 +464,34 @@ and out of alpha) — re-run a full audit then, since the newer `wrangler`/
 
 ---
 
-### 027 — Copilot code review requested via a workflow step, not the repo-ruleset toggle
-**Accepted.** GitHub offers two ways to get an automatic Copilot review on
-every pull request: a repository ruleset rule ("Automatically request
-Copilot code review", under Settings → Rules → Rulesets), or `gh pr edit
---add-reviewer @copilot` (GitHub CLI ≥2.88, shipped 2026-03-11). The
-ruleset is a repository *setting* — it can't be expressed as a file in this
-repo, needs to be toggled by hand (or via the rulesets API, which needs
-repo-admin credentials this session doesn't carry), and only affects this
-one repository's config rather than being something a contributor can see
-in a diff. `.github/workflows/copilot-review.yml` runs the `gh pr edit`
-command instead, triggered on `pull_request: opened, reopened,
-ready_for_review` — same effect, but versioned alongside the rest of CI.
+### 027 — Copilot code review requested via the repo ruleset, not a workflow step
+**Accepted, reversing an earlier draft.** GitHub offers two ways to get an
+automatic Copilot review on every pull request: a repository ruleset rule
+("Automatically request Copilot code review", under Settings → Rules →
+Rulesets), or `gh pr edit --add-reviewer @copilot` in a workflow (GitHub
+CLI ≥2.88, shipped 2026-03-11). A first pass used the workflow — versioned
+alongside the rest of CI — but the ruleset is what GitHub itself treats as
+the supported mechanism: it also covers `synchronize` (re-review on every
+push) and draft-PR handling as first-class options, and it's where the
+review effort level (see below) actually lives — the workflow step could
+only request a review with whatever the org/repo default happened to be.
 
-*Cost, accepted:* requesting a Copilot review this way needs Copilot code
-review actually enabled for this repo/org (Copilot Pro, Pro+, Business, or
-Enterprise) — if it isn't, `gh pr edit --add-reviewer @copilot` errors. The
-step runs with `continue-on-error: true` for exactly that reason: a missing
-license shouldn't block every PR, it should just mean no Copilot review
-shows up (visible in the workflow's log, not silently swallowed). The same
-guard also means a fork's PR — where the default `GITHUB_TOKEN` is
-read-only regardless of this workflow's declared `permissions:` — fails
-the same harmless way instead of blocking anything.
+Configured by hand (Settings → Code and automation → Rules → Rulesets →
+New branch ruleset → target the branches that receive PRs → enable
+"Automatically request Copilot code review"), not by this repo's code —
+rulesets need repo-admin credentials no session here carries, and there's
+no `create_repository_ruleset`-shaped tool available to script it.
 
-*Reconsider if:* Copilot code review ends up enabled account-wide anyway
-(the ruleset also covers `synchronize` — re-reviewing every new push —
-which this workflow deliberately does not request, to avoid asking for a
-fresh review on every commit) — the ruleset would then be one on/off
-toggle instead of a workflow to maintain.
+*Cost, accepted:* the ruleset is invisible in a diff — a contributor
+reading this repo's source won't see that Copilot review is on, unlike the
+workflow file it replaced. `docs/DECISIONS.md` (this entry) is the record
+of that setting instead.
+
+*Also:* there's no per-review "which model" knob (GPT-5 vs. Claude, etc.)
+— GitHub picks the model internally. The closest available control is the
+**review effort level** — Lite (routine changes) vs. Balanced (routes to a
+higher-reasoning model for complex, security-sensitive, or cross-service
+changes) — settable per-request in the PR's Reviewers section, or as an
+org/repo default alongside the ruleset. (Model *choice* does exist for a
+different feature — `@copilot` mentioned in a PR *comment*, which invokes
+the Copilot coding agent, not code review — and is unrelated to this ADR.)
