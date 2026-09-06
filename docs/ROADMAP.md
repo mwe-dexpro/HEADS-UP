@@ -42,6 +42,14 @@ logic, and a CI check gate that runs them (see below).
    directional screen transitions. Risk is mainly in getting the sync model
    right once there's enough UI surface that optimistic updates and the
    offline cache can visibly disagree with the server.
+   The export itself is archived at `design/` — `design/README.md` explains
+   the bundle, `design/chats/*.md` are the 15 design-iteration transcripts
+   (read these for *why* a screen ended up the way it did, not just the
+   final markup), `design/project/Heads Up.html` + its `.jsx`/`.css` are the
+   prototype to recreate pixel-for-pixel (in this stack's idiom, not by
+   porting the prototype's own structure), and
+   `design/project/uploads/event-task-app-spec.md` is the original product
+   spec the whole design was built from.
 3. **Real icons and a proper PWA manifest** — value 4, risk 1. The manifest
    currently ships an empty `icons: []` and there's no favicon — placeholder
    gaps left honestly rather than faked, waiting on Phase 2's actual visual
