@@ -1,0 +1,36 @@
+/* Design tokens ported from design/project/_ds/…/tokens/*.css (the Claude
+   Design handoff bundle) — see design/README.md. Font-family is the one
+   deliberate deviation: the handoff's Sofia Sans is a Google Fonts webfont,
+   which the CSP (vite.config.ts) can't allow without adding a font-src
+   exception and self-hosting the file, so this uses a comparable system
+   rounded/humanist sans stack instead. */
+
+:root {
+  --ink: #141413;
+  --charcoal: #262627;
+  --slate: #696969;
+  --dust-taupe: #d1cdc7;
+  --signal-orange: #cf4500;
+  --signal-orange-light: #f37338;
+  --clay-brown: #9a3a0a;
+  --canvas-cream: #f3f0ee;
+  --lifted-cream: #fcfbfa;
+  --white: #ffffff;
+  --soft-bone: #f4f4f4;
+  --ghost-cream: #e8e2da;
+  --link-blue: #3860be;
+
+  --surface-canvas: var(--canvas-cream);
+  --surface-lifted: var(--lifted-cream);
+  --border-default: rgba(20, 20, 19, 0.15);
+
+  --font-primary:
+    ui-rounded, "Segoe UI Rounded", "Hiragino Maru Gothic ProN", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+
+  --radius-button: 20px;
+  --radius-stadium: 40px;
+  --radius-pill: 999px;
+
+  --shadow-1: 0px 4px 24px 0px rgba(0, 0, 0, 0.04);
+  --shadow-2: 0px 24px 48px 0px rgba(0, 0, 0, 0.08);
+}

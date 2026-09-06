@@ -50,6 +50,13 @@ logic, and a CI check gate that runs them (see below).
    porting the prototype's own structure), and
    `design/project/uploads/event-task-app-spec.md` is the original product
    spec the whole design was built from.
+   **Home is done** (against the live `/tasks`, `/events`, `/lists` API, not
+   mock data): overdue/today/next-3-days/next-week/upcoming grouping, the
+   empty state, per-event progress, and task creation. Narrower than the
+   prototype on purpose for this first slice — no swipe gestures,
+   multi-select, Zen mode, or Plan Wizard yet, and "add task" is
+   standalone-only until Events/Lists exist to link against. The rest of
+   Phase 2's screens are still open.
 3. **Real icons and a proper PWA manifest** — value 4, risk 1. The manifest
    currently ships an empty `icons: []` and there's no favicon — placeholder
    gaps left honestly rather than faked, waiting on Phase 2's actual visual
