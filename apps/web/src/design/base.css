@@ -1,0 +1,555 @@
+/* Shared visual primitives for the Phase-2 screens, adapted from
+   design/project/app.css (the Claude Design handoff — see design/README.md).
+   The handoff's markup assumed a fixed 390×844 phone frame; this keeps the
+   same look but flows naturally so the PWA is actually responsive (see
+   docs ROADMAP's "Confirm responsive behavior for the PWA/web version, not
+   just the phone screen"). */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-primary);
+  background: var(--surface-canvas);
+  color: var(--ink);
+}
+
+.app-shell {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  padding: 20px 20px 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.topbar h1 {
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.56px;
+  color: var(--ink);
+  margin: 0;
+}
+
+.topbar .sub {
+  font-size: 14px;
+  color: var(--slate);
+  font-weight: 450;
+  margin-top: 2px;
+}
+
+.icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border-default);
+  background: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+  color: var(--ink);
+}
+
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 20px 8px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.56px;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.section-label.collapsible {
+  cursor: pointer;
+}
+
+.section-label .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.section-label .count {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--slate);
+}
+
+.section-date {
+  text-transform: none;
+  font-weight: 450;
+  color: var(--slate);
+  letter-spacing: 0;
+}
+
+.list {
+  padding: 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--white);
+  border-radius: 20px;
+  /* Clips the progress bar to this exact rounded shape (below) rather than
+     giving the 4px-tall bar its own border-radius: at that height a 20px
+     radius doesn't render as a circular arc, it gets flattened to fit —
+     which would visibly mismatch the card's actual corner curve. */
+  overflow: hidden;
+  padding: 14px 16px 18px;
+  box-shadow: var(--shadow-1);
+}
+
+.task-row.overdue {
+  background: #fbede6;
+}
+
+.task-row.high-priority {
+  background: #fbe9e9;
+}
+
+.check {
+  appearance: none;
+  padding: 0;
+  font: inherit;
+  position: relative;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(20, 20, 19, 0.35);
+  flex: none;
+  margin-top: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: var(--white);
+}
+
+.check::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+.check.done {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.check svg {
+  width: 14px;
+  height: 14px;
+  color: var(--canvas-cream);
+}
+
+.task-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1.3;
+}
+
+.task-title.done {
+  text-decoration: line-through;
+  color: var(--slate);
+}
+
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--slate);
+  font-weight: 450;
+  flex-wrap: wrap;
+}
+
+.task-meta .due {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.task-meta .due.overdue {
+  color: var(--clay-brown);
+}
+
+.task-meta-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.task-meta-event {
+  font-size: 13px;
+  color: var(--slate);
+  font-weight: 450;
+  margin-top: 3px;
+}
+
+.task-progress-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.task-progress-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: rgba(20, 20, 19, 0.1);
+}
+
+.task-progress-bottom-fill {
+  height: 100%;
+  background: var(--ink);
+}
+
+.pill-tag {
+  background: var(--soft-bone);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pill-tag .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 40px;
+  text-align: center;
+}
+
+.empty .ring {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: var(--soft-bone);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink);
+}
+
+.empty h2 {
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0;
+  letter-spacing: -0.44px;
+}
+
+.empty p {
+  font-size: 15px;
+  color: var(--slate);
+  margin: 0;
+  font-weight: 450;
+  max-width: 280px;
+  line-height: 1.4;
+}
+
+.btn {
+  font-family: var(--font-primary);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.48px;
+  padding: 12px 24px;
+  border-radius: var(--radius-button);
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.btn-primary {
+  background: var(--ink);
+  color: var(--canvas-cream);
+  border: 1.5px solid var(--ink);
+}
+
+.btn-secondary {
+  background: var(--white);
+  color: var(--ink);
+  border: 1.5px solid var(--ink);
+  font-weight: 450;
+}
+
+.fab {
+  position: fixed;
+  right: max(20px, calc((100vw - 480px) / 2 + 20px));
+  bottom: 28px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--canvas-cream);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-2);
+  cursor: pointer;
+  z-index: 20;
+  border: none;
+}
+
+.status-banner {
+  margin: 0 16px 4px;
+  padding: 10px 16px;
+  border-radius: 16px;
+  background: var(--soft-bone);
+  color: var(--slate);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.status-banner.error {
+  background: #fbede6;
+  color: var(--clay-brown);
+}
+
+.field {
+  padding: 0 20px;
+  margin-top: 18px;
+}
+
+.field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--slate);
+  margin-bottom: 8px;
+}
+
+.input-plain {
+  width: 100%;
+  border: 1.5px solid var(--border-default);
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-size: 16px;
+  font-weight: 450;
+  color: var(--ink);
+  font-family: var(--font-primary);
+  background: var(--white);
+}
+
+.chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  appearance: none;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border-default);
+  background: var(--white);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  font-family: var(--font-primary);
+}
+
+.chip.selected {
+  background: var(--ink);
+  color: var(--canvas-cream);
+  border-color: var(--ink);
+}
+
+.chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.row-actions {
+  display: flex;
+  gap: 10px;
+  padding: 20px 20px 8px;
+}
+
+.row-actions .btn {
+  flex: 1;
+}
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 20, 19, 0);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 50;
+  transition: background 0.28s ease;
+  visibility: hidden;
+}
+
+.sheet-backdrop.show {
+  background: rgba(20, 20, 19, 0.4);
+  visibility: visible;
+}
+
+.sheet {
+  background: var(--surface-canvas);
+  width: 100%;
+  max-width: 480px;
+  max-height: 88vh;
+  border-radius: 28px 28px 0 0;
+  overflow-y: auto;
+  padding-bottom: 24px;
+  transform: translateY(100%);
+  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.sheet-backdrop.show .sheet {
+  transform: translateY(0);
+}
+
+.sheet-handle {
+  width: 40px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border-default);
+  margin: 12px auto;
+}
+
+.sheet h2 {
+  padding: 0 20px;
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -0.4px;
+  margin: 4px 0 4px;
+}
+
+.toast-wrap {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 96px;
+  z-index: 60;
+  display: flex;
+  justify-content: center;
+  opacity: 0;
+  transform: translateY(16px) scale(0.97);
+  transition:
+    opacity 0.22s ease,
+    transform 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+  pointer-events: none;
+}
+
+.toast-wrap.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.toast-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--ink);
+  color: var(--canvas-cream);
+  border-radius: var(--radius-stadium);
+  padding: 16px 18px 16px 24px;
+  font-size: 15px;
+  font-weight: 450;
+  box-shadow: var(--shadow-2);
+  max-width: 340px;
+}
+
+.signin-screen {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 16px;
+  padding: 40px 24px;
+}
+
+.signin-screen h1 {
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0;
+}
+
+.signin-screen p {
+  font-size: 15px;
+  color: var(--slate);
+  margin: 0;
+  max-width: 280px;
+  line-height: 1.4;
+}
+
+.toast-card button {
+  background: none;
+  border: none;
+  color: var(--signal-orange-light);
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  padding: 10px 8px;
+  margin: -10px -8px;
+  min-height: 44px;
+  font-family: var(--font-primary);
+}

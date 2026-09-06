@@ -1,13 +1,13 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthCallback } from "./auth/AuthCallback";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
+import { HomeScreen } from "./pages/HomeScreen";
 import { SignIn } from "./pages/SignIn";
-import { TasksPage } from "./pages/TasksPage";
 
 function Gate() {
   const { state } = useAuth();
-  if (state.status === "loading") return <p className="page">Loading…</p>;
-  return state.status === "signedIn" ? <TasksPage /> : <SignIn />;
+  if (state.status === "loading") return <p style={{ padding: 24 }}>Loading…</p>;
+  return state.status === "signedIn" ? <HomeScreen /> : <SignIn />;
 }
 
 export function App() {
