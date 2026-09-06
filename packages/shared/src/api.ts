@@ -66,6 +66,12 @@ export interface TasksListResponse {
   tasks: TaskRecord[];
 }
 
+/** GET /tasks/:id, POST /tasks, and PATCH /tasks/:id all wrap the task in an
+ * object rather than returning it bare. */
+export interface TaskResponse {
+  task: TaskRecord;
+}
+
 export interface ListsListResponse {
   lists: List[];
 }

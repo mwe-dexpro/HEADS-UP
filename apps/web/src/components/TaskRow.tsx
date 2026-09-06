@@ -31,9 +31,16 @@ export function TaskRow({ bucketed, event, list, eventProgress, onToggle }: Task
       className={"task-row" + (overdue ? " overdue" : "") + (highPriority ? " high-priority" : "")}
       style={listColor ? { boxShadow: `inset 4px 0 0 0 ${listColor}, var(--shadow-1)` } : undefined}
     >
-      <div className={"check" + (task.done ? " done" : "")} onClick={() => onToggle(bucketed)}>
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={task.done}
+        aria-label={task.done ? `Mark "${task.name}" not done` : `Mark "${task.name}" done`}
+        className={"check" + (task.done ? " done" : "")}
+        onClick={() => onToggle(bucketed)}
+      >
         {task.done && <Icon icon={Check} size={14} />}
-      </div>
+      </button>
       <div className="task-body">
         <div className={"task-title" + (task.done ? " done" : "")}>{task.name}</div>
         <div className="task-meta">

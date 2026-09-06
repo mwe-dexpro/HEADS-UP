@@ -1,4 +1,4 @@
-import type { CreateTaskInput, EventRecord, EventsListResponse, List, ListsListResponse, TaskRecord, TasksListResponse } from "@heads-up/shared";
+import type { CreateTaskInput, EventRecord, EventsListResponse, List, ListsListResponse, TaskRecord, TaskResponse, TasksListResponse } from "@heads-up/shared";
 import { ChevronDown, ChevronUp, LogOut, Plus, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { apiJson } from "../api/client";
@@ -166,7 +166,7 @@ export function HomeScreen() {
 
   async function handleCreateTask(input: CreateTaskInput) {
     try {
-      const created = await apiJson<TaskRecord>("/tasks", { method: "POST", body: JSON.stringify(input) });
+      const { task: created } = await apiJson<TaskResponse>("/tasks", { method: "POST", body: JSON.stringify(input) });
       setTasks((ts) => [created, ...ts]);
       setAddSheetOpen(false);
       showToast(`"${created.name}" added`, () => void undoCreate(created.id));
@@ -206,6 +206,8 @@ export function HomeScreen() {
   const nextweek = bucketed.filter((b) => b.bucket === "nextweek");
   const upcoming = bucketed.filter((b) => b.bucket === "upcoming");
   const doneCount = tasks.filter((t) => t.done).length;
+  const oneWeekAgoMs = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+  const doneThisWeekCount = tasks.filter((t) => t.done && t.doneAt && new Date(t.doneAt).getTime() >= oneWeekAgoMs).length;
   const isEmpty = overdue.length === 0 && today.length === 0 && next3.length === 0 && nextweek.length === 0 && upcoming.length === 0 && doneCount === 0;
 
   const sectionProps = { eventsById, listsById, eventStats, onToggleTask: handleToggleTask, onToggleOpen: toggleOpen };
@@ -246,12 +248,12 @@ export function HomeScreen() {
             <HomeSection id="next3" dot="var(--ink)" label="Next 3 days" items={next3} collapsible open={open.next3} {...sectionProps} />
             <HomeSection id="nextweek" dot="var(--slate)" label="Next week" items={nextweek} collapsible open={open.nextweek} {...sectionProps} />
             <HomeSection id="upcoming" dot="var(--dust-taupe)" label="Upcoming" items={upcoming} collapsible open={open.upcoming} {...sectionProps} />
-            {doneCount > 0 && (
+            {doneThisWeekCount > 0 && (
               <div style={{ padding: "18px 20px 100px", fontSize: 13, color: "var(--slate)", fontWeight: 450 }}>
-                {doneCount} task{doneCount > 1 ? "s" : ""} completed this week
+                {doneThisWeekCount} task{doneThisWeekCount > 1 ? "s" : ""} completed this week
               </div>
             )}
-            {doneCount === 0 && <div style={{ height: 100 }} />}
+            {doneThisWeekCount === 0 && <div style={{ height: 100 }} />}
           </>
         )}
       </div>

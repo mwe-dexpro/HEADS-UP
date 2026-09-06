@@ -69,9 +69,14 @@ export function AddTaskSheet({ show, onClose, onCreate }: AddTaskSheetProps) {
           <label>Priority</label>
           <div className="chips">
             {PRIORITIES.map((p) => (
-              <span key={p.value} className={"chip" + (priority === p.value ? " selected" : "")} onClick={() => setPriority(p.value)}>
+              <button
+                key={p.value}
+                type="button"
+                className={"chip" + (priority === p.value ? " selected" : "")}
+                onClick={() => setPriority(p.value)}
+              >
                 {p.label}
-              </span>
+              </button>
             ))}
           </div>
         </div>
