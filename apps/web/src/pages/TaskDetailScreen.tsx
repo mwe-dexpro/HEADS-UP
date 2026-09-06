@@ -96,22 +96,22 @@ export function TaskDetailScreen({ task, event, list, now, onBack, onToggleDone,
           </div>
           {event ? (
             <div className="event-link-chip">
-              <Icon icon={CalendarDays} size={16} />
+              <Icon icon={CalendarDays} size={22} />
               <div className="event-link-chip-body">
                 <span className="event-link-chip-name">{event.title}</span>
                 <span className="event-link-chip-meta">{eventMetaLabel(event)}</span>
               </div>
-              <Icon icon={ChevronRight} size={16} color="var(--slate)" />
+              <Icon icon={ChevronRight} size={20} color="var(--slate)" />
             </div>
           ) : (
             list && (
-              <div className="event-link-chip" style={{ boxShadow: `inset 3px 0 0 0 ${list.color}, var(--shadow-1)` }}>
-                <span className="list-color-dot" style={{ background: list.color }} />
+              <div className="event-link-chip" style={{ boxShadow: `inset 4px 0 0 0 ${list.color}, var(--shadow-1)` }}>
+                <span className="list-color-dot lg" style={{ background: list.color }} />
                 <div className="event-link-chip-body">
                   <span className="event-link-chip-name">{list.name}</span>
                   <span className="event-link-chip-meta">To-do list</span>
                 </div>
-                <Icon icon={ChevronRight} size={16} color="var(--slate)" />
+                <Icon icon={ChevronRight} size={20} color="var(--slate)" />
               </div>
             )
           )}

@@ -563,13 +563,13 @@ body {
 .event-link-chip {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   background: var(--white);
-  border-radius: 18px;
-  padding: 10px 16px;
-  margin-top: 12px;
+  border-radius: 20px;
+  padding: 16px 20px;
+  margin-top: 14px;
   box-shadow: var(--shadow-1);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--ink);
 }
@@ -579,13 +579,14 @@ body {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .event-link-chip-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 17px;
   font-weight: 600;
 }
 
@@ -593,7 +594,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 450;
   color: var(--slate);
 }
@@ -603,6 +604,11 @@ body {
   height: 10px;
   border-radius: 50%;
   flex: none;
+}
+
+.list-color-dot.lg {
+  width: 16px;
+  height: 16px;
 }
 
 .editing-banner {
