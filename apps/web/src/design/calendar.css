@@ -1,0 +1,460 @@
+/* Bottom tab bar (App.tsx's AppShell) and the Calendar screen — adapted from
+   design/project/app.css's .tabbar/.tab and the calendar-view.jsx prototype's
+   cal-*/seg-tab*/month-*/tg-*/agenda-* rules. Ported to a fixed bottom bar
+   (like .fab, below) rather than a flex-column sibling, since this app uses
+   natural page scroll instead of the prototype's fixed-height phone frame
+   with per-screen internal scrolling — see base.css's header comment. Day
+   columns use `1fr` instead of the prototype's fixed pixel widths so the
+   grid fills the available width responsively. */
+
+.tab-bar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 10px 8px calc(14px + env(safe-area-inset-bottom));
+  background: var(--surface-lifted);
+  border-top: 1px solid var(--border-default);
+  z-index: 30;
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  color: var(--slate);
+  font-size: 11px;
+  font-weight: 700;
+  flex: 1;
+}
+
+.tab.active {
+  color: var(--ink);
+}
+
+.cal-view {
+  padding-bottom: 140px;
+}
+
+.cal-subtabs-row {
+  padding: 0 20px 4px;
+}
+
+.cal-filter-row {
+  padding: 0 20px 8px;
+}
+
+.seg-tabs {
+  display: inline-flex;
+  gap: 6px;
+  background: var(--white);
+  border-radius: var(--radius-pill);
+  padding: 5px;
+  box-shadow: var(--shadow-1);
+}
+
+.seg-tabs.dense {
+  display: flex;
+  width: 100%;
+  padding: 4px;
+  gap: 3px;
+}
+
+.seg-tab {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 9px 18px;
+  border-radius: var(--radius-pill);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  font-family: var(--font-primary);
+}
+
+.seg-tabs.dense .seg-tab {
+  padding: 7px 3px;
+  font-size: 11px;
+  flex: 1;
+  white-space: nowrap;
+}
+
+.seg-tab.active {
+  background: var(--ink);
+  color: var(--canvas-cream);
+}
+
+.cal-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px 8px;
+}
+
+.cal-nav-btn {
+  width: 32px;
+  height: 32px;
+}
+
+.cal-nav-label {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: center;
+}
+
+.today-btn {
+  border: 1.5px solid var(--border-default);
+  background: var(--white);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  flex: none;
+  font-family: var(--font-primary);
+}
+
+.cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--slate);
+  margin-bottom: 4px;
+}
+
+.month-view {
+  padding: 0 20px 4px;
+}
+
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.month-cell {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.month-cell.outside {
+  opacity: 0.32;
+}
+
+.month-cell.selected {
+  background: var(--ink);
+}
+
+.month-cell.selected .month-daynum {
+  color: var(--canvas-cream);
+}
+
+.month-daynum {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.month-daynum.today {
+  background: var(--signal-orange);
+  color: var(--white);
+  font-weight: 700;
+}
+
+.month-dots {
+  display: flex;
+  gap: 2px;
+}
+
+.month-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+.month-cell.selected .month-dot {
+  background: var(--canvas-cream) !important;
+}
+
+.agenda-list {
+  padding: 4px 20px 24px;
+}
+
+.agenda-group:first-child .agenda-label,
+.agenda .agenda-label {
+  margin-top: 0;
+}
+
+.agenda-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 20px 0 8px;
+}
+
+.agenda-empty {
+  color: var(--slate);
+  font-size: 14px;
+  padding: 8px 0;
+}
+
+.agenda-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--white);
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: var(--shadow-1);
+}
+
+.agenda-card + .agenda-card {
+  margin-top: 8px;
+}
+
+.agenda-row-time {
+  width: 52px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.agenda-row-time .t {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.agenda-row-time .d {
+  font-size: 11px;
+  color: var(--slate);
+}
+
+.agenda-row-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+  margin-top: 6px;
+}
+
+.agenda-row-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.agenda-row-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1.3;
+}
+
+.agenda-row-name.done {
+  text-decoration: line-through;
+  color: var(--slate);
+}
+
+.agenda-row-loc {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--slate);
+  margin-top: 3px;
+}
+
+.tg {
+  padding: 0 20px 24px;
+}
+
+.tg-header {
+  display: grid;
+  padding-bottom: 4px;
+}
+
+.tg-daylabel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 0;
+}
+
+.tg-daylabel .dow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--slate);
+}
+
+.tg-daylabel .dnum {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.tg-daylabel.today .dnum {
+  background: var(--signal-orange);
+  color: var(--white);
+}
+
+.tg-allday {
+  display: grid;
+  border-top: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-default);
+  min-height: 26px;
+}
+
+.tg-allday-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--slate);
+  display: flex;
+  align-items: center;
+  padding: 4px 4px 4px 0;
+}
+
+.tg-allday-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px 2px;
+}
+
+.tg-allday-chip {
+  background: var(--signal-orange-light);
+  color: var(--white);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tg-allday-chip.task {
+  background: var(--white);
+  border: 1.5px solid var(--ink);
+  color: var(--ink);
+}
+
+.tg-grid {
+  display: grid;
+  position: relative;
+  margin-top: 6px;
+}
+
+.tg-gutter {
+  position: relative;
+}
+
+.tg-hour {
+  font-size: 10px;
+  color: var(--slate);
+  font-weight: 700;
+  text-align: right;
+  padding-right: 6px;
+  box-sizing: border-box;
+  transform: translateY(-6px);
+}
+
+.tg-col {
+  position: relative;
+  border-left: 1px solid var(--border-default);
+}
+
+.tg-hourline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--border-default);
+}
+
+.tg-now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--signal-orange);
+  z-index: 2;
+}
+
+.tg-now::before {
+  content: "";
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--signal-orange);
+}
+
+.tg-event {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  background: var(--ink);
+  color: var(--canvas-cream);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  box-shadow: var(--shadow-1);
+}
+
+.tg-event.task {
+  background: var(--white);
+  border: 1.5px solid var(--ink);
+  box-shadow: none;
+}
+
+.tg-event-name {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tg-event-time {
+  opacity: 0.75;
+  font-size: 9px;
+}

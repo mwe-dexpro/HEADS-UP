@@ -335,7 +335,7 @@ body {
 .fab {
   position: fixed;
   right: max(20px, calc((100vw - 480px) / 2 + 20px));
-  bottom: 28px;
+  bottom: calc(78px + env(safe-area-inset-bottom));
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -486,7 +486,7 @@ body {
   position: fixed;
   left: 16px;
   right: 16px;
-  bottom: 96px;
+  bottom: calc(150px + env(safe-area-inset-bottom));
   z-index: 60;
   display: flex;
   justify-content: center;
