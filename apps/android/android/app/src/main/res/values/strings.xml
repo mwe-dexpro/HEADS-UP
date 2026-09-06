@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Heads Up</string>
+    <string name="title_activity_main">Heads Up</string>
+    <string name="package_name">de.dexpro.headsup</string>
+    <string name="custom_url_scheme">de.dexpro.headsup</string>
+</resources>

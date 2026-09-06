@@ -1,0 +1,123 @@
+// Offline read cache for task/event/list data — a cache, not the source of
+// truth (the API is). Encrypted with AES-GCM using a non-extractable
+// CryptoKey stored alongside the data in IndexedDB: in-origin code can still
+// ask it to encrypt/decrypt (so offline reload works normally), but the raw
+// key bytes can never be extracted — not via devtools, not by a malicious
+// browser extension with storage access, not by copying the IndexedDB files
+// off a stolen, unencrypted disk. It does NOT defend against an XSS payload
+// running inside this same origin, which could call the same decrypt
+// function the app does — the CSP (see vite.config.ts) is what's actually
+// for that. See docs/THREAT-MODEL.md "Information disclosure".
+
+const DB_NAME = "heads-up-cache";
+const DB_VERSION = 1;
+const KEY_STORE = "keys";
+const DATA_STORE = "data";
+const KEY_RECORD_ID = "cache-key";
+
+function openDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(KEY_STORE)) db.createObjectStore(KEY_STORE);
+      if (!db.objectStoreNames.contains(DATA_STORE)) db.createObjectStore(DATA_STORE);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function reqToPromise<T>(req: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function getOrCreateKey(db: IDBDatabase): Promise<CryptoKey> {
+  // The get-and-maybe-put has to happen inside a *single* transaction, not
+  // a readonly check followed by a separate readwrite write: two calls
+  // racing here (e.g. two tabs open at once) could otherwise both see no
+  // existing key between those two transactions and both generate and
+  // store a different one — the second write silently wins, and anything
+  // already encrypted under the first key becomes permanently
+  // undecryptable (getCached just returns null for it, indistinguishable
+  // from an empty cache).
+  //
+  // The candidate key is generated *before* opening the transaction,
+  // because crypto.subtle is real async work that would let an open
+  // IndexedDB transaction auto-commit out from under us if awaited inside
+  // it — generating one we might throw away is cheap and keeps the actual
+  // get-then-put atomic (IndexedDB serializes readwrite transactions
+  // against the same store, so a second caller's get is guaranteed to run
+  // only after the first caller's put has committed).
+  const candidate = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+
+  return new Promise<CryptoKey>((resolve, reject) => {
+    const tx = db.transaction(KEY_STORE, "readwrite");
+    const store = tx.objectStore(KEY_STORE);
+    let result: CryptoKey;
+    const getReq = store.get(KEY_RECORD_ID);
+    getReq.onsuccess = () => {
+      const existing = getReq.result as CryptoKey | undefined;
+      if (existing) {
+        result = existing;
+        return;
+      }
+      store.put(candidate, KEY_RECORD_ID);
+      result = candidate;
+    };
+    getReq.onerror = () => reject(getReq.error);
+    // Resolve only once the write has actually committed — resolving right
+    // after store.put() would hand callers a key that a later abort (quota,
+    // storage eviction) never persisted, leaving data encrypted under a key
+    // that's gone the next time this runs.
+    tx.oncomplete = () => resolve(result);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+
+export async function setCached(cacheKey: string, value: unknown): Promise<void> {
+  const db = await openDb();
+  const key = await getOrCreateKey(db);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const plaintext = new TextEncoder().encode(JSON.stringify(value));
+  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
+  const tx = db.transaction(DATA_STORE, "readwrite");
+  tx.objectStore(DATA_STORE).put({ iv, ciphertext }, cacheKey);
+  await new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
+
+export async function getCached<T>(cacheKey: string): Promise<T | null> {
+  const db = await openDb();
+  try {
+    const key = await getOrCreateKey(db);
+    const tx = db.transaction(DATA_STORE, "readonly");
+    const record = await reqToPromise<{ iv: Uint8Array; ciphertext: ArrayBuffer } | undefined>(tx.objectStore(DATA_STORE).get(cacheKey));
+    if (!record) return null;
+    const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(record.iv) }, key, record.ciphertext);
+    return JSON.parse(new TextDecoder().decode(plaintext)) as T;
+  } catch {
+    // A corrupt record or a key that no longer decrypts it shouldn't crash
+    // the app — it's a cache; the API is still the source of truth.
+    return null;
+  } finally {
+    db.close();
+  }
+}
+
+/** Wipes the cache (data and key) entirely — called on sign-out. */
+export async function clearSecureCache(): Promise<void> {
+  await new Promise<void>((resolve) => {
+    const req = indexedDB.deleteDatabase(DB_NAME);
+    req.onsuccess = () => resolve();
+    req.onerror = () => resolve();
+    req.onblocked = () => resolve();
+  });
+}
