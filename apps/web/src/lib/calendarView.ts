@@ -209,14 +209,14 @@ export function sortByTime(items: CalendarItem[]): CalendarItem[] {
  * each day, by start time — the shape both the Agenda tab and Month view's
  * day panel need. */
 export function groupByDay(items: CalendarItem[]): CalendarDayGroup[] {
-  const byKey = new Map<string, CalendarItem[]>();
+  const byKey = new Map<number, CalendarItem[]>();
   for (const it of items) {
     const key = it.date.getTime();
-    const arr = byKey.get(String(key)) ?? [];
+    const arr = byKey.get(key) ?? [];
     arr.push(it);
-    byKey.set(String(key), arr);
+    byKey.set(key, arr);
   }
   return [...byKey.entries()]
-    .sort(([a], [b]) => Number(a) - Number(b))
+    .sort(([a], [b]) => a - b)
     .map(([, arr]) => ({ date: arr[0].date, items: sortByTime(arr) }));
 }

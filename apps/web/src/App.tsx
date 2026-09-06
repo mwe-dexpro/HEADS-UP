@@ -26,10 +26,16 @@ function AppShell() {
       {tab === "home" ? <HomeScreen /> : <CalendarScreen />}
       <nav className="tab-bar">
         {TABS.map((t) => (
-          <div key={t.key} className={"tab" + (tab === t.key ? " active" : "")} onClick={() => setTab(t.key)}>
+          <button
+            key={t.key}
+            type="button"
+            className={"tab" + (tab === t.key ? " active" : "")}
+            onClick={() => setTab(t.key)}
+            aria-current={tab === t.key ? "page" : undefined}
+          >
             <Icon icon={t.icon} size={22} />
             {t.label}
-          </div>
+          </button>
         ))}
       </nav>
     </main>

@@ -89,13 +89,13 @@ interface CalHeaderProps {
 function CalHeader({ label, onPrev, onNext, onToday }: CalHeaderProps) {
   return (
     <div className="cal-nav">
-      <div className="icon-btn cal-nav-btn" onClick={onPrev} aria-label="Previous">
+      <button type="button" className="icon-btn cal-nav-btn" onClick={onPrev} aria-label="Previous">
         <Icon icon={ChevronLeft} size={16} />
-      </div>
+      </button>
       <span className="cal-nav-label">{label}</span>
-      <div className="icon-btn cal-nav-btn" onClick={onNext} aria-label="Next">
+      <button type="button" className="icon-btn cal-nav-btn" onClick={onNext} aria-label="Next">
         <Icon icon={ChevronRight} size={16} />
-      </div>
+      </button>
       <button type="button" className="today-btn" onClick={onToday}>
         Today
       </button>
@@ -212,10 +212,12 @@ function MonthGrid({ anchor, items, listsById, selectedDate, onSelect, now }: Mo
           const selected = isSameDay(d, selectedDate);
           const dayItems = itemsOnDay(items, d);
           return (
-            <div
+            <button
+              type="button"
               key={d.getTime()}
               className={"month-cell" + (inMonth ? "" : " outside") + (selected ? " selected" : "")}
               onClick={() => onSelect(d)}
+              aria-label={`Show ${d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`}
             >
               <span className={"month-daynum" + (today ? " today" : "")}>{d.getDate()}</span>
               {dayItems.length > 0 && (
@@ -225,7 +227,7 @@ function MonthGrid({ anchor, items, listsById, selectedDate, onSelect, now }: Mo
                   ))}
                 </span>
               )}
-            </div>
+            </button>
           );
         })}
       </div>
@@ -295,7 +297,13 @@ function TimeGrid({ days, items, listsById, now }: TimeGridProps) {
         </div>
         {days.map((d) => {
           const dayToday = isSameDay(d, now);
-          const dayItems = itemsOnDay(items, d).filter((it) => !it.allDay);
+          const dayItems = itemsOnDay(items, d).filter(
+            (it): it is CalendarItem & { startMinutes: number } =>
+              !it.allDay &&
+              it.startMinutes !== null &&
+              it.startMinutes >= GRID_HOUR_START * 60 &&
+              it.startMinutes < GRID_HOUR_END * 60
+          );
           return (
             <div key={d.getTime()} className="tg-col">
               {hours.map((h, hi) => (
@@ -309,13 +317,13 @@ function TimeGrid({ days, items, listsById, now }: TimeGridProps) {
                   key={`${it.kind}-${it.id}`}
                   className={"tg-event" + (it.kind === "task" ? " task" : "")}
                   style={{
-                    top: ((it.startMinutes! - GRID_HOUR_START * 60) / 60) * GRID_HOUR_HEIGHT,
+                    top: ((it.startMinutes - GRID_HOUR_START * 60) / 60) * GRID_HOUR_HEIGHT,
                     height: GRID_HOUR_HEIGHT - 4,
                     ...taskStyle(it),
                   }}
                 >
                   <span className="tg-event-name">{it.name}</span>
-                  <span className="tg-event-time">{formatClock(it.startMinutes!)}</span>
+                  <span className="tg-event-time">{formatClock(it.startMinutes)}</span>
                 </div>
               ))}
             </div>
